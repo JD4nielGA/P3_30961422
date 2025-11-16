@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Membresías - CineCríticas</title>
+    <link rel="stylesheet" href="/css/user-profile.css">
+    <style>
+        .membership-container {
+            padding: 20px;
+        }
+        .membership-plans {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin: 30px 0;
+        }
+        .plan-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            border: 2px solid #e2e8f0;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .plan-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+        .plan-card.featured {
+            border-color: #ffc107;
+            background: linear-gradient(135deg, #fffaf0 0%, #fff5eb 100%);
+        }
+        .plan-card.featured::before {
+            content: 'RECOMENDADO';
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ffc107;
+            color: #744210;
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .plan-name {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+        .plan-price {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #4299e1;
+            margin: 20px 0;
+        }
+        .plan-period {
+            color: #718096;
+            font-size: 0.9em;
+        }
+        .plan-features {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .plan-features li {
+            padding: 8px 0;
+            color: #4a5568;
+        }
+        .plan-features li::before {
+            content: '✓';
+            color: #48bb78;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .current-plan {
+            background: #c6f6d5;
+            color: #22543d;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .btn-subscribe {
+            background: #4299e1;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-block;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+        }
+        .btn-subscribe:hover {
+            background: #3182ce;
+            transform: scale(1.05);
+        }
+        .btn-current {
+            background: #48bb78;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: bold;
+            display: inline-block;
+            width: 100%;
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        .user-membership {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .membership-status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status-active {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        .status-inactive {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .benefit-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .benefit-icon {
+            font-size: 2em;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="user-container">
+        <div class="user-sidebar">
+            <h3>Mi Cuenta</h3>
+            <nav class="user-menu">
+                <a href="/user/profile" class="<%= currentPath === '/user/profile' ? 'active' : '' %>">Perfil</a>
+                <a href="/user/my-reviews" class="<%= currentPath === '/user/my-reviews' ? 'active' : '' %>">Mis Reseñas</a>
+                <a href="/user/purchase-history" class="<%= currentPath === '/user/purchase-history' ? 'active' : '' %>">Historial de Compras</a>
+                <a href="/user/membership" class="<%= currentPath === '/user/membership' ? 'active' : '' %>">Membresías</a>
+                <div class="profile-actions">
+                    <h2>Acciones Rápidas</h2>
+                    <div class="action-links">
+                        <a href="/reviews/new" class="action-link">
+                            <span class="action-icon">✍️</span>
+                            Escribir Nueva Reseña
+                        </a>
+                        <br>
+                        <br>
+                        <a href="/user/my-reviews" class="action-link">
+                            <span class="action-icon">📝</span>
+                            Ver todas mis reseñas
+                        </a>
+                    </div>
+                </div>
+            </nav>
+        </div>
+        
+        <div class="user-content">
+            <div class="membership-container">
+                <h1>Membresías</h1>
+
+                <!-- Estado actual de membresía -->
+                <div class="user-membership">
+                    <h2>Tu Membresía Actual</h2>
+                    <p>
+                        <strong>Tipo:</strong> 
+                        <span style="text-transform: capitalize;">
+                            <%= user.membership_type || 'free' %>
+                        </span>
+                        <span class="membership-status <%= (user.membership_type && user.membership_type !== 'free') ? 'status-active' : 'status-inactive' %>">
+                            <%= (user.membership_type && user.membership_type !== 'free') ? 'ACTIVA' : 'GRATUITA' %>
+                        </span>
+                    </p>
+                    <% if (user.membership_expires && user.membership_type !== 'free') { %>
+                        <p>
+                            <strong>Válida hasta:</strong> 
+                            <%= new Date(user.membership_expires).toLocaleDateString('es-ES', { 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                            }) %>
+                        </p>
+                    <% } %>
+                </div>
+
+                <!-- Beneficios de las membresías -->
+                <div class="benefits-grid">
+                    <div class="benefit-card">
+                        <div class="benefit-icon">🎬</div>
+                        <h3>Acceso Ilimitado</h3>
+                        <p>Contenido exclusivo y reseñas premium</p>
+                    </div>
+                    <div class="benefit-card">
+                        <div class="benefit-icon">⭐</div>
+                        <h3>Reseñas Destacadas</h3>
+                        <p>Mayor visibilidad para tus reseñas</p>
+                    </div>
+                    <div class="benefit-card">
+                        <div class="benefit-icon">📱</div>
+                        <h3>Sin Anuncios</h3>
+                        <p>Experiencia libre de publicidad</p>
+                    </div>
+                    <div class="benefit-card">
+                        <div class="benefit-icon">💬</div>
+                        <h3>Soporte Prioritario</h3>
+                        <p>Atención personalizada 24/7</p>
+                    </div>
+                </div>
+
+                <!-- Planes de membresía -->
+                <h2>Planes Disponibles</h2>
+                <div class="membership-plans">
+                    <!-- Plan Gratuito -->
+                    <div class="plan-card">
+                        <div class="plan-name">Gratuito</div>
+                        <div class="plan-price">€0</div>
+                        <div class="plan-period">Siempre gratis</div>
+                        <ul class="plan-features">
+                            <li>Reseñas básicas</li>
+                            <li>Acceso limitado al contenido</li>
+                            <li>Anuncios ocasionales</li>
+                            <li>Soporte por email</li>
+                        </ul>
+                        <% if (!user.membership_type || user.membership_type === 'free') { %>
+                            <div class="current-plan">Tu plan actual</div>
+                            <button class="btn-current" disabled>Plan Actual</button>
+                        <% } else { %>
+                            <button class="btn-subscribe" onclick="downgradePlan()">Volver a Gratuito</button>
+                        <% } %>
+                    </div>
+
+                    <!-- Plan Premium -->
+                    <div class="plan-card featured">
+                        <div class="plan-name">Premium</div>
+                        <div class="plan-price">€4.99</div>
+                        <div class="plan-period">por mes</div>
+                        <ul class="plan-features">
+                            <li>Reseñas ilimitadas</li>
+                            <li>Contenido exclusivo</li>
+                            <li>Sin anuncios</li>
+                            <li>Reseñas destacadas</li>
+                            <li>Soporte prioritario</li>
+                            <li>Acceso anticipado</li>
+                        </ul>
+                        <% if (user.membership_type === 'premium') { %>
+                            <div class="current-plan">Tu plan actual</div>
+                            <button class="btn-current" disabled>Plan Actual</button>
+                        <% } else { %>
+                            <button class="btn-subscribe" onclick="purchaseMembership('premium')">
+                                <%= user.membership_type === 'free' ? 'Mejorar a Premium' : 'Cambiar a Premium' %>
+                            </button>
+                        <% } %>
+                    </div>
+
+                    <!-- Plan VIP -->
+                    <div class="plan-card">
+                        <div class="plan-name">VIP</div>
+                        <div class="plan-price">$9.99</div>
+                        <div class="plan-period">por mes</div>
+                        <ul class="plan-features">
+                            <li>Todos los beneficios Premium</li>
+                            <li>Contenido VIP exclusivo</li>
+                            <li>Invitaciones a eventos</li>
+                            <li>Asistente personal</li>
+                            <li>Descuentos especiales</li>
+                            <li>Beta tester features</li>
+                        </ul>
+                        <% if (user.membership_type === 'vip') { %>
+                            <div class="current-plan">Tu plan actual</div>
+                            <button class="btn-current" disabled>Plan Actual</button>
+                        <% } else { %>
+                            <button class="btn-subscribe" onclick="purchaseMembership('vip')">
+                                <%= user.membership_type === 'free' ? 'Mejorar a VIP' : 'Cambiar a VIP' %>
+                            </button>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function purchaseMembership(planType) {
+            if (!confirm(`¿Estás seguro de que quieres suscribirte al plan ${planType.toUpperCase()}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/user/membership/purchase', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        plan_type: planType
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('¡Membresía adquirida exitosamente!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error al procesar la compra: ' + error.message);
+            }
+        }
+
+        function downgradePlan() {
+            if (confirm('¿Estás seguro de que quieres volver al plan gratuito? Perderás todos los beneficios premium.')) {
+                // Implementar lógica para downgrade
+                alert('Función de downgrade en desarrollo');
+            }
+        }
+    </script>
+</body>
+</html>

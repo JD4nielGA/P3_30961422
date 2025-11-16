@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= review.movie_title %> - CineCríticas</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/css-re.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="header-top">
+                <a href="/" class="logo">
+                    <i class="fas fa-film"></i>
+                    <span>CineCríticas</span>
+                </a>
+                <div>
+                    <a href="/" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i>Volver al Inicio
+                    </a>
+                    <% if (user) { %>
+                        <a href="/reviews/new" class="btn btn-primary">
+                            <i class="fas fa-plus"></i>Nueva Reseña
+                        </a>
+                    <% } %>
+                </div>
+            </div>
+        </header>
+       
+
+        <!-- Movie Hero Section -->
+        <section class="movie-hero">
+            <div class="movie-poster-container">
+                <!-- Imagen de la película - VERSIÓN CORREGIDA -->
+                <% 
+                // USAR DIRECTAMENTE imageUrl del controlador o calcular de forma segura
+                let moviePosterUrl = '/images/default-poster.jpg';
+                let finalImageSource = 'default';
+                
+                if (typeof imageUrl !== 'undefined' && imageUrl) {
+                    moviePosterUrl = imageUrl;
+                    finalImageSource = typeof imageSource !== 'undefined' ? imageSource : 'imageUrl from controller';
+                } else {
+                    // Lógica de respaldo si imageUrl no está definida
+                    if (review.review_image && review.review_image !== '') {
+                        // Si ya incluye la ruta, usarla directamente
+                        if (review.review_image.startsWith('/uploads/')) {
+                            moviePosterUrl = review.review_image;
+                        } else {
+                            moviePosterUrl = `/uploads/reviews/${review.review_image}`;
+                        }
+                        finalImageSource = 'review_image';
+                    } else if (movie && movie.poster_image) {
+                        // Si ya incluye la ruta, usarla directamente
+                        if (movie.poster_image.startsWith('/uploads/')) {
+                            moviePosterUrl = movie.poster_image;
+                        } else {
+                            moviePosterUrl = `/uploads/movies/${movie.poster_image}`;
+                        }
+                        finalImageSource = 'movie_poster';
+                    } else if (review.poster_image && review.poster_image !== '') {
+                        // Si ya incluye la ruta, usarla directamente
+                        if (review.poster_image.startsWith('/uploads/')) {
+                            moviePosterUrl = review.poster_image;
+                        } else {
+                            moviePosterUrl = `/uploads/reviews/${review.poster_image}`;
+                        }
+                        finalImageSource = 'review_poster';
+                    }
+                }
+                
+                console.log('DEBUG - moviePosterUrl final:', moviePosterUrl);
+                console.log('DEBUG - imageSource:', finalImageSource);
+                %>
+                
+                <div class="image-test">
+                    <img src="<%= moviePosterUrl %>" 
+                         alt="<%= review.movie_title %>" 
+                         class="movie-poster"
+                         id="moviePoster">
+                </div>
+            </div>
+            
+            <div class="movie-info">
+                <h1 class="movie-title">
+                    <%= review.movie_title %>
+                    <% if (review.is_featured) { %>
+                        <span class="featured-badge">
+                            <i class="fas fa-star"></i>DESTACADA
+                        </span>
+                    <% } %>
+                </h1>
+                
+                <div class="movie-meta">
+                    <div class="rating">
+                        <i class="fas fa-star"></i>
+                        <span><%= review.rating %>/5</span>
+                    </div>
+                    <div class="review-count">
+                        <i class="fas fa-comment"></i>
+                        <a href="/movie/<%= encodeURIComponent(review.movie_title) %>" style="color: #718096;">
+                            Ver todas las reseñas
+                        </a>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <% if (user) { %>
+                        <a href="/reviews/new?movie=<%= encodeURIComponent(review.movie_title) %>" 
+                           class="btn btn-primary">
+                            <i class="fas fa-edit"></i>Escribir Reseña
+                        </a>
+                    <% } %>
+                    <a href="/movie/<%= encodeURIComponent(review.movie_title) %>" 
+                       class="btn btn-secondary" style="margin-left: 10px;">
+                        <i class="fas fa-list"></i>Ver Todas las Reseñas
+                    </a>
+                    <!-- Comprar: botón para iniciar flujo de compra -->
+                    <% 
+                    let productPrice = 3.99;
+                    if (typeof product !== 'undefined' && product && product.price) {
+                        productPrice = product.price;
+                    } else if (review.price) {
+                        productPrice = review.price;
+                    }
+                    %>
+                    <button class="btn btn-primary" id="buyButton" style="margin-left: 10px; background: #e53e3e;">
+                        <i class="fas fa-shopping-cart"></i> Comprar - <%= Number(productPrice).toFixed(2) %> €
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Review Content -->
+        <section class="review-content">
+            <div class="review-header">
+                <div>
+                    <h2 class="review-title"><%= review.title %></h2>
+                    <div class="rating" style="background: transparent; color: #ffc107; padding: 0; margin-top: 5px;">
+                        <% for (let i = 0; i < 5; i++) { %>
+                            <% if (i < review.rating) { %>
+                                <i class="fas fa-star"></i>
+                            <% } else { %>
+                                <i class="far fa-star"></i>
+                            <% } %>
+                        <% } %>
+                        <span style="color: #718096; margin-left: 5px;">(<%= review.rating %>/5)</span>
+                    </div>
+                </div>
+                <div class="review-meta">
+                    <div class="review-author">
+                        <i class="fas fa-user"></i>
+                        <%= review.username || 'Usuario' %>
+                    </div>
+                    <div class="review-date">
+                        <i class="fas fa-calendar"></i>
+                        <%= new Date(review.created_at).toLocaleDateString('es-ES', { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                        }) %>
+                    </div>
+                    <% if (review.updated_at && review.updated_at !== review.created_at) { %>
+                    <div class="review-date">
+                        <i class="fas fa-edit"></i>
+                        Editado: <%= new Date(review.updated_at).toLocaleDateString('es-ES', { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                        }) %>
+                    </div>
+                    <% } %>
+                </div>
+            </div>
+
+            <!-- Imagen de la reseña - VERSIÓN CORREGIDA -->
+            <% 
+            let reviewImageUrl = '';
+            let hasReviewImage = false;
+            
+            if (review.review_image && review.review_image !== '') {
+                // Si ya incluye la ruta, usarla directamente
+                if (review.review_image.startsWith('/uploads/')) {
+                    reviewImageUrl = review.review_image;
+                } else {
+                    reviewImageUrl = `/uploads/reviews/${review.review_image}`;
+                }
+                hasReviewImage = true;
+                console.log('✅ Usando review_image de la base de datos:', reviewImageUrl);
+            } else if (typeof imageUrl !== 'undefined' && imageUrl && imageUrl.includes('/uploads/reviews/')) {
+                // Si imageUrl ya apunta a una imagen de reseña, usarla
+                reviewImageUrl = imageUrl;
+                hasReviewImage = true;
+            }
+            %>
+            
+            <% if (hasReviewImage) { %>
+                <div class="review-image-container image-test">
+                    <p><strong>URL de imagen de reseña:</strong> <%= reviewImageUrl %></p>
+                    <img src="<%= reviewImageUrl %>" 
+                         alt="Imagen de la reseña: <%= review.title %>" 
+                         class="review-image"
+                         id="reviewImage"
+                         onerror="handleImageError(this, 'review')"
+                         onload="handleImageLoad(this, 'review')">
+                </div>
+            <% } else { %>
+                <div class="debug-info">
+                  
+                </div>
+            <% } %>
+
+            <div class="review-text">
+                <% 
+                let content = review.content || '';
+                const paragraphs = content.split('\n').filter(p => p.trim()); 
+                %>
+                <% if (paragraphs.length > 0) { %>
+                    <% paragraphs.forEach(paragraph => { %>
+                        <p><%= paragraph %></p>
+                    <% }); %>
+                <% } else { %>
+                    <p><%= content %></p>
+                <% } %>
+            </div>
+
+            <!-- Acciones para el autor o admin -->
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 30px; flex-wrap: wrap;">
+                <% if (user) { %>
+                    <a href="/reviews/new?movie=<%= encodeURIComponent(review.movie_title) %>" 
+                       class="btn btn-primary">
+                        <i class="fas fa-edit"></i>Escribir Tu Reseña
+                    </a>
+                <% } %>
+                <a href="/movie/<%= encodeURIComponent(review.movie_title) %>" 
+                   class="btn btn-secondary">
+                    <i class="fas fa-list"></i>Ver Todas las Reseñas
+                </a>
+                <% if (user && (user.id === review.user_id || user.role === 'admin')) { %>
+                    <a href="/admin/reviews/<%= review.id %>/edit" 
+                       class="btn btn-secondary" style="background: #38a169;">
+                        <i class="fas fa-cog"></i>Editar Reseña
+                    </a>
+                <% } %>
+            </div>
+        </section>
+
+        <!-- Resto del template se mantiene igual -->
+        <section class="other-reviews">
+            <h3 class="section-title">
+                <i class="fas fa-comments"></i>Más Reseñas de "<%= review.movie_title %>"
+            </h3>
+            <div style="text-align: center; padding: 40px; color: #718096;">
+                <i class="fas fa-comment-slash fa-2x mb-3"></i>
+                <p>Esta es la única reseña de esta película por ahora.</p>
+                <% if (user) { %>
+                    <a href="/reviews/new?movie=<%= encodeURIComponent(review.movie_title) %>" 
+                       class="btn btn-primary">
+                        <i class="fas fa-edit"></i>Sé el primero en escribir una reseña
+                    </a>
+                <% } else { %>
+                    <a href="/login" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i>Inicia sesión para escribir una reseña
+                    </a>
+                <% } %>
+            </div>
+        </section>
+    </div>
+
+    <!-- Modal de compra y scripts se mantienen igual -->
+    <div id="purchaseModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:9999;">
+        <div style="background:#fff; color:#2d3748; border-radius:12px; padding:24px; width:90%; max-width:480px; box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+            <h3 style="margin-bottom:8px;">Comprar: <%= review.movie_title %></h3>
+            <p style="color:#4a5568; margin-bottom:16px;">Precio: <strong><%= Number(productPrice).toFixed(2) %> €</strong></p>
+            <% if (!user) { %>
+                <p style="background:#fff6f6; border:1px solid #fed7d7; padding:12px; border-radius:8px; color:#742a2a;">
+                    Debes <a href="/login" style="color:#4299e1;">iniciar sesión</a> para completar la compra.
+                </p>
+                <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+                    <button class="btn btn-secondary" id="closeModalBtn">Cerrar</button>
+                </div>
+            <% } else { %>
+                <form id="purchaseForm" method="POST" action="/purchase/movie" style="display:flex; flex-direction:column; gap:12px;">
+                    <input type="hidden" name="movie_title" value="<%= review.movie_title %>">
+                    <% if (typeof product !== 'undefined' && product && product.id) { %>
+                        <input type="hidden" name="product_id" value="<%= product.id %>">
+                    <% } %>
+                    <div style="display:flex; gap:8px; justify-content:flex-end;">
+                        <button type="button" class="btn btn-secondary" id="closeModalBtn2">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="confirmPurchaseBtn" style="background:#e53e3e;">Confirmar y Pagar</button>
+                    </div>
+                </form>
+            <% } %>
+        </div>
+    </div>
+
+    <script>
+        // Funciones para debugging de imágenes
+        function handleImageError(img, type) {
+            console.error('❌ Error cargando imagen ' + type + ':', img.src);
+            
+            const container = img.parentElement;
+            const errorMsg = document.createElement('div');
+            errorMsg.style.background = '#fed7d7';
+            errorMsg.style.color = '#c53030';
+            errorMsg.style.padding = '10px';
+            errorMsg.style.borderRadius = '5px';
+            errorMsg.style.marginTop = '10px';
+            errorMsg.innerHTML = `<strong>Error cargando imagen:</strong><br>${img.src}`;
+            container.appendChild(errorMsg);
+            
+            if (type === 'movie') {
+                setTimeout(() => {
+                    img.src = '/images/default-poster.jpg';
+                }, 1000);
+            } else if (type === 'review') {
+                img.style.display = 'none';
+            }
+        }
+
+        function handleImageLoad(img, type) {
+            console.log('✅ Imagen ' + type + ' cargada correctamente:', img.src);
+            
+            const container = img.parentElement;
+            if (container.classList.contains('image-test')) {
+                container.style.borderColor = '#48bb78';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('=== INICIANDO DEBUG DE IMÁGENES ===');
+            console.log('imageUrl recibida del servidor:', '<%= typeof imageUrl !== "undefined" ? imageUrl : "NO DEFINIDA" %>');
+            
+            const moviePoster = document.getElementById('moviePoster');
+            if (moviePoster) {
+                console.log('🧪 Testeando imagen de película:', moviePoster.src);
+                
+                fetch(moviePoster.src)
+                    .then(response => {
+                        if (response.ok) {
+                            console.log('✅ Imagen de película existe en el servidor');
+                        } else {
+                            console.error('❌ Imagen de película NO existe en el servidor');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('❌ Error fetching imagen de película:', error);
+                    });
+            }
+
+            const reviewImage = document.getElementById('reviewImage');
+            if (reviewImage) {
+                console.log('🧪 Testeando imagen de reseña:', reviewImage.src);
+                
+                fetch(reviewImage.src)
+                    .then(response => {
+                        if (response.ok) {
+                            console.log('✅ Imagen de reseña existe en el servidor');
+                        } else {
+                            console.error('❌ Imagen de reseña NO existe en el servidor');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('❌ Error fetching imagen de reseña:', error);
+                    });
+            }
+        });
+
+        // Purchase modal logic
+        (function() {
+            const buyBtn = document.getElementById('buyButton');
+            const modal = document.getElementById('purchaseModal');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const closeModalBtn2 = document.getElementById('closeModalBtn2');
+            const purchaseForm = document.getElementById('purchaseForm');
+            const confirmBtn = document.getElementById('confirmPurchaseBtn');
+
+            function openModal() {
+                if (modal) {
+                    modal.style.display = 'flex';
+                    document.body.style.overflow = 'hidden';
+                }
+            }
+
+            function closeModal() {
+                if (modal) {
+                    modal.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                }
+            }
+
+            if (buyBtn) {
+                buyBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    openModal();
+                });
+            }
+
+            if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
+            if (closeModalBtn2) closeModalBtn2.addEventListener('click', closeModal);
+
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        closeModal();
+                    }
+                });
+            }
+
+            if (purchaseForm && confirmBtn) {
+                purchaseForm.addEventListener('submit', function(e) {
+                    confirmBtn.disabled = true;
+                    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                });
+            }
+        })();
+    </script>
+</body>
+</html>
