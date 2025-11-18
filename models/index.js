@@ -1,53 +1,43 @@
-// models/index.js
-const { Sequelize } = require('sequelize');
-const path = require('path');
+// models/index.js - VERSIÓN ACTUALIZADA
+const { sequelize } = require('../config/database');
+const User = require('./User');
+const Review = require('./Review');
+const Movie = require('./Movie');
+const Category = require('./Category');
+const Tag = require('./Tag');
+const Product = require('./Product');
+const Series = require('./Series'); // Asegúrate de tener este archivo
 
-// Configuración de la base de datos SQLite
-const sequelize = new Sequelize({
-  dialect: 'sqlite',
-  storage: path.join(__dirname, '..', 'database.sqlite'),
-  logging: process.env.NODE_ENV !== 'production' ? console.log : false,
-  define: {
-    timestamps: true,
-    underscored: true,
-  }
-});
+// Relaciones básicas
+User.hasMany(Review, { foreignKey: 'user_id' });
+Review.belongsTo(User, { foreignKey: 'user_id' });
 
-// Importar modelos
-const User = require('./User')(sequelize);
-const Review = require('./Review')(sequelize);
-const Movie = require('./Movie')(sequelize);
-const Category = require('./Category')(sequelize);
-const Tag = require('./Tag')(sequelize);
-const Product = require('./Product')(sequelize);
-const Series = require('./Series')(sequelize);
+// Relaciones para productos
+Category.hasMany(Product, { foreignKey: 'category_id' });
+Product.belongsTo(Category, { foreignKey: 'category_id' });
 
-// Definir asociaciones
-if (Movie.associate) Movie.associate({ Review, User, Product });
-if (Review.associate) Review.associate({ Movie, User });
-if (User.associate) User.associate({ Review });
-if (Product.associate) Product.associate({ Movie });
+// Relación muchos a muchos Product <-> Tag
+Product.belongsToMany(Tag, { through: 'ProductTags', foreignKey: 'product_id' });
+Tag.belongsToMany(Product, { through: 'ProductTags', foreignKey: 'tag_id' });
 
-// Función para inicializar la base de datos
+// Sincronización
 const initializeDatabase = async () => {
   try {
     await sequelize.authenticate();
-    console.log('✅ Conexión a la base de datos establecida correctamente.');
-    
-    // Sincronizar modelos
+    console.log('\u2705 Conexión a SQLite establecida.');
+
     await sequelize.sync({ force: false });
-    console.log('✅ Modelos sincronizados con la base de datos.');
-    
+    console.log('\u2705 Modelos sincronizados.');
+
     return true;
   } catch (error) {
-    console.error('❌ Error inicializando la base de datos:', error);
+    console.error('\u274c Error de base de datos:', error.message);
     return false;
   }
 };
 
 module.exports = {
   sequelize,
-  Sequelize,
   User,
   Review,
   Movie,

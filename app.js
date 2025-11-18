@@ -1,4 +1,4 @@
-// app.js - VERSIÓN COMPLETAMENTE CORREGIDA
+// app.js - VERSIÓN COMPLETAMENTE CORREGIDA CON DEBUGGING MEJORADO
 console.log('🚀 Iniciando CineCríticas con Swagger...');
 
 // Configuración
@@ -288,7 +288,7 @@ try {
 } catch (error) {
   console.error('❌ Error cargando UserController:', error.message);
   UserController = createFallbackController('UserController', [
-    'getProfile', 'listUsers'
+    'getProfile', 'listUsers', 'updateProfile'
   ]);
 }
 
@@ -471,8 +471,7 @@ app.get('/api/test', (req, res) => {
       '/api/test', 
       '/api/reviews',
       '/api/auth/login',
-      '/api/auth/register',
-      '/api/user/profile'
+      '/api/auth/register'
     ]
   });
 });
@@ -500,22 +499,230 @@ app.get('/', async (req, res) => {
   }
 });
 
-// ================= RUTAS DE PERFIL DE USUARIO =================
-app.get('/user/profile', requireAuth, ProfileController.showProfile);
-app.put('/api/user/profile', requireAuthAPI, ProfileController.updateProfile);
-app.get('/user/purchase-history', requireAuth, ProfileController.purchaseHistory);
-app.get('/user/my-reviews', requireAuth, ProfileController.myReviews);
-app.get('/user/membership', requireAuth, ProfileController.membership);
-app.post('/api/user/membership/purchase', requireAuthAPI, ProfileController.purchaseMembership);
-app.get('/api/user/profile/stats', requireAuthAPI, ProfileController.getProfileStats);
+// ================= RUTAS DE COMPRA - CORREGIDAS =================
 
-// ================= RUTA PARA VER RESEÑA INDIVIDUAL - CORREGIDA =================
-app.get('/review/:id', ReviewController.showReview);
+/**
+ * @swagger
+ * /purchase-movie:
+ *   get:
+ *     summary: Mostrar página de compra de película
+ *     description: Renderiza la página de compra para una película específica
+ *     tags: [Purchase]
+ *     parameters:
+ *       - in: query
+ *         name: movie
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Título de la película a comprar
+ *       - in: query
+ *         name: price
+ *         schema:
+ *           type: number
+ *         description: Precio de la película
+ *     responses:
+ *       200:
+ *         description: Página de compra renderizada
+ */
+app.get('/purchase-movie', requireAuth, async (req, res) => {
+  try {
+    console.log('🔍 DEBUG - Accediendo a /purchase-movie');
+    console.log('🔍 DEBUG - Query params:', req.query);
+    console.log('🔍 DEBUG - User session:', req.session.user);
+    
+    const { movie: movieTitle, price } = req.query;
+    
+    if (!movieTitle) {
+      console.log('❌ DEBUG - No movie title provided');
+      return res.status(400).render('error', {
+        title: 'Error',
+        message: 'Título de película requerido',
+        user: req.session.user
+      });
+    }
 
-// ================= RUTAS DE RESEÑAS PARA USUARIOS NORMALES =================
-app.get('/reviews/new', requireAuth, ReviewController.showNewUserReviewForm);
-app.post('/reviews/new', requireAuth, ReviewController.createUserReview);
-app.get('/user/my-reviews', requireAuth, ReviewController.showMyReviews);
+    console.log('🔍 DEBUG - Buscando película:', movieTitle);
+    const movie = await DatabaseService.getMovieByTitle(movieTitle);
+    console.log('🔍 DEBUG - Resultado búsqueda:', movie);
+    
+    let movieData;
+    if (movie) {
+      movieData = {
+        id: movie.id,
+        title: movie.title,
+        price: movie.price || price || 3.99,
+        poster_image: movie.poster_image,
+        release_year: movie.release_year || 'N/A',
+        genre: movie.genre || 'No especificado',
+        duration: movie.duration || 'N/A',
+        director: movie.director || 'No especificado'
+      };
+    } else {
+      console.log('🔍 DEBUG - Creando datos de película desde query');
+      movieData = {
+        id: null,
+        title: movieTitle,
+        price: price || 3.99,
+        poster_image: null,
+        release_year: 'N/A',
+        genre: 'No especificado',
+        duration: 'N/A',
+        director: 'No especificado'
+      };
+    }
+
+    console.log('🔍 DEBUG - Renderizando purchase-movie con datos:', movieData);
+    
+    res.render('purchase-movie', {
+      title: `Comprar ${movieData.title} - CineCríticas`,
+      movie: movieData,
+      user: req.session.user
+    });
+
+  } catch (error) {
+    console.error('❌ ERROR en purchase-movie:', error);
+    res.status(500).render('error', {
+      title: 'Error',
+      message: 'Error al cargar la página de compra: ' + error.message,
+      user: req.session.user
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /purchase/process-movie:
+ *   post:
+ *     summary: Procesar compra de película
+ *     description: Procesa el pago y completa la compra de una película
+ *     tags: [Purchase]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/x-www-form-urlencoded:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - movie_id
+ *               - amount
+ *               - payment_method
+ *             properties:
+ *               movie_id:
+ *                 type: integer
+ *               amount:
+ *                 type: number
+ *               payment_method:
+ *                 type: string
+ *                 enum: [card, paypal]
+ *               card_number:
+ *                 type: string
+ *               expiry_date:
+ *                 type: string
+ *               cvv:
+ *                 type: string
+ *               card_holder:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Compra procesada exitosamente
+ *       400:
+ *         description: Error en los datos de pago
+ */
+app.post('/purchase/process-movie', requireAuth, async (req, res) => {
+  try {
+    console.log('🔍 DEBUG - Procesando compra');
+    console.log('🔍 DEBUG - Body:', req.body);
+    
+    const { 
+      movie_id, 
+      amount, 
+      payment_method, 
+      card_number, 
+      expiry_date, 
+      cvv, 
+      card_holder,
+      movie_title 
+    } = req.body;
+
+    console.log('Procesando compra:', {
+      user_id: req.session.user.id,
+      movie_id,
+      movie_title,
+      amount,
+      payment_method,
+      card_number: payment_method === 'card' ? `••••${card_number?.slice(-4)}` : 'N/A'
+    });
+
+    // Guardar la compra en la base de datos
+    const purchase = await DatabaseService.recordPurchase({
+      user_id: req.session.user.id,
+      movie_id: movie_id || null,
+      movie_title: movie_title || 'Película Comprada',
+      amount: parseFloat(amount),
+      payment_method,
+      status: 'completed'
+    });
+
+    console.log('✅ Compra registrada:', purchase);
+
+    res.redirect(`/purchase/confirmation?purchase_id=${purchase.id}`);
+
+  } catch (error) {
+    console.error('❌ Error procesando compra:', error);
+    res.status(500).render('error', {
+      title: 'Error en la compra',
+      message: 'Hubo un error al procesar tu compra. Por favor intenta nuevamente.',
+      user: req.session.user
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /purchase/confirmation:
+ *   get:
+ *     summary: Mostrar confirmación de compra
+ *     description: Página de confirmación después de una compra exitosa
+ *     tags: [Purchase]
+ *     parameters:
+ *       - in: query
+ *         name: purchase_id
+ *         schema:
+ *           type: integer
+ *         description: ID de la compra
+ *     responses:
+ *       200:
+ *         description: Página de confirmación renderizada
+ */
+app.get('/purchase/confirmation', requireAuth, async (req, res) => {
+  try {
+    console.log('🔍 DEBUG - Accediendo a confirmación de compra');
+    const { purchase_id } = req.query;
+    console.log('🔍 DEBUG - Purchase ID:', purchase_id);
+    
+    let purchase = null;
+    if (purchase_id) {
+      purchase = await DatabaseService.getPurchaseById(purchase_id);
+      console.log('🔍 DEBUG - Compra encontrada:', purchase);
+    }
+
+    res.render('purchase-confirmation', {
+      title: 'Compra Exitosa - CineCríticas',
+      purchase,
+      user: req.session.user
+    });
+
+  } catch (error) {
+    console.error('❌ Error en confirmación:', error);
+    res.status(500).render('error', {
+      title: 'Error',
+      message: 'Error al cargar la confirmación: ' + error.message,
+      user: req.session.user
+    });
+  }
+});
 
 // ================= RUTAS DE AUTENTICACIÓN WEB =================
 app.get('/login', AuthController.showLogin);
@@ -523,7 +730,317 @@ app.get('/register', AuthController.showRegister);
 app.post('/auth/login', AuthController.login);
 app.post('/auth/register', AuthController.register);
 
-// ================= RUTAS DE API DOCUMENTADAS =================
+// ================= RUTAS DE PERFIL DE USUARIO - CORREGIDAS =================
+app.get('/user/profile', requireAuth, async (req, res) => {
+  try {
+    const user = await DatabaseService.getUserById(req.session.user.id);
+    if (!user) {
+      return res.redirect('/login');
+    }
+    
+    res.render('user-profile', {
+      title: 'Mi Perfil - CineCríticas',
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        full_name: user.full_name,
+        role: user.role,
+        created_at: user.created_at
+      }
+    });
+  } catch (error) {
+    console.error('Error cargando perfil:', error);
+    res.status(500).render('error', {
+      title: 'Error',
+      message: 'Error al cargar el perfil',
+      user: req.session.user
+    });
+  }
+});
+
+app.get('/user/purchase-history', requireAuth, ProfileController.purchaseHistory);
+app.get('/user/my-reviews', requireAuth, ProfileController.myReviews);
+app.get('/user/membership', requireAuth, ProfileController.membership);
+
+// ================= RUTAS DE PERFIL CON SESIÓN - VERSIÓN CORREGIDA =================
+app.put('/api/user/profile/session', requireAuth, async (req, res) => {
+  try {
+    const { full_name, email, current_password, new_password } = req.body;
+    const userId = req.session.user.id;
+    
+    console.log('🔍 === INICIANDO ACTUALIZACIÓN DE PERFIL ===');
+    console.log('🔍 Usuario ID:', userId);
+    console.log('🔍 Datos recibidos:', { 
+      full_name, 
+      email, 
+      current_password: current_password ? '***' : 'null',
+      new_password: new_password ? '***' : 'null'
+    });
+    
+    // Validar que el usuario existe
+    const user = await DatabaseService.getUserById(userId);
+    if (!user) {
+      console.log('❌ Usuario no encontrado en BD');
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    
+    console.log('🔍 Usuario encontrado en BD:', { 
+      id: user.id, 
+      username: user.username,
+      email: user.email,
+      full_name: user.full_name,
+      hasPassword: !!user.password_hash
+    });
+    
+    // Preparar datos para actualizar
+    const updateData = {};
+    
+    // Actualizar nombre completo si es diferente
+    if (full_name !== undefined && full_name !== user.full_name) {
+      updateData.full_name = full_name.trim();
+      console.log('🔍 Actualizando full_name:', user.full_name, '→', updateData.full_name);
+    }
+    
+    // Actualizar email si es diferente
+    if (email !== undefined && email !== user.email) {
+      updateData.email = email.trim();
+      console.log('🔍 Actualizando email:', user.email, '→', updateData.email);
+    }
+    
+    // Manejo de cambio de contraseña
+    const wantsToChangePassword = new_password && new_password.trim() !== '';
+    const hasCurrentPassword = current_password && current_password.trim() !== '';
+    
+    if (wantsToChangePassword) {
+      console.log('🔍 Solicitando cambio de contraseña');
+      
+      // Validar longitud
+      if (new_password.trim().length < 6) {
+        return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' });
+      }
+      
+      // Verificar si el usuario tiene contraseña actual
+      const userHasPassword = user.password_hash && user.password_hash.length > 0;
+      
+      if (userHasPassword) {
+        console.log('🔍 Usuario tiene contraseña existente, validando...');
+        if (!hasCurrentPassword) {
+          return res.status(400).json({ error: 'Debe proporcionar la contraseña actual para cambiarla' });
+        }
+        
+        try {
+          const isValidPassword = await bcrypt.compare(current_password.trim(), user.password_hash);
+          if (!isValidPassword) {
+            return res.status(400).json({ error: 'Contraseña actual incorrecta' });
+          }
+          console.log('✅ Contraseña actual validada');
+        } catch (bcryptError) {
+          console.error('❌ Error en bcrypt:', bcryptError);
+          return res.status(400).json({ error: 'Error al validar la contraseña actual' });
+        }
+      } else {
+        console.log('🔍 Usuario sin contraseña existente, estableciendo nueva');
+      }
+      
+      // Hashear nueva contraseña - USAR password_hash PARA SEQUELIZE
+      updateData.password_hash = await bcrypt.hash(new_password.trim(), 10);
+      console.log('✅ Nueva contraseña hasheada');
+    }
+    
+    // Verificar si hay algo que actualizar
+    if (Object.keys(updateData).length === 0) {
+      console.log('⚠️  No hay cambios para actualizar');
+      return res.json({ 
+        success: true, 
+        message: 'No se detectaron cambios para actualizar',
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          full_name: user.full_name,
+          role: user.role
+        }
+      });
+    }
+    
+    console.log('🔍 Datos a actualizar en BD:', updateData);
+    
+    // Actualizar en la base de datos
+    const updated = await DatabaseService.updateUser(userId, updateData);
+    console.log('🔍 Resultado de updateUser:', updated);
+    
+    if (updated) {
+      // Obtener usuario actualizado
+      const updatedUser = await DatabaseService.getUserById(userId);
+      console.log('🔍 Usuario después de actualizar:', {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        full_name: updatedUser.full_name,
+        password_hash_updated: !!updateData.password_hash
+      });
+      
+      // Actualizar datos en sesión
+      req.session.user = { 
+        ...req.session.user, 
+        full_name: updatedUser.full_name, 
+        email: updatedUser.email 
+      };
+      
+      console.log('🔍 Sesión actualizada:', req.session.user);
+      
+      const message = updateData.password_hash 
+        ? 'Perfil y contraseña actualizados correctamente' 
+        : 'Perfil actualizado correctamente';
+      
+      console.log('✅ === ACTUALIZACIÓN EXITOSA ===');
+      res.json({ 
+        success: true, 
+        message: message,
+        user: {
+          id: updatedUser.id,
+          username: updatedUser.username,
+          email: updatedUser.email,
+          full_name: updatedUser.full_name,
+          role: updatedUser.role
+        }
+      });
+    } else {
+      console.log('❌ DatabaseService.updateUser devolvió false');
+      res.status(400).json({ error: 'Error al actualizar perfil en la base de datos' });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error actualizando perfil:', error);
+    res.status(500).json({ error: 'Error interno del servidor: ' + error.message });
+  }
+});
+
+// ================= RUTA DE DEBUGGING - VER ESTADO DE USUARIOS =================
+app.get('/api/debug/users', async (req, res) => {
+  try {
+    const users = await DatabaseService.getAllUsers();
+    const usersSafe = users.map(user => ({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      full_name: user.full_name,
+      role: user.role,
+      hasPassword: !!user.password_hash,
+      passwordLength: user.password_hash ? user.password_hash.length : 0,
+      created_at: user.created_at
+    }));
+    
+    res.json({
+      success: true,
+      users: usersSafe,
+      total: users.length
+    });
+  } catch (error) {
+    console.error('Error en debug users:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ================= RUTA TEMPORAL - ACTUALIZACIÓN DIRECTA =================
+app.put('/api/user/profile/direct', requireAuth, async (req, res) => {
+  try {
+    const { full_name, email, new_password } = req.body;
+    const userId = req.session.user.id;
+    
+    console.log('🔧 Actualización directa para usuario:', userId);
+    
+    let updateQuery = 'UPDATE users SET full_name = ?, email = ?';
+    let params = [full_name, email, userId];
+    
+    if (new_password && new_password.trim() !== '') {
+      const hashedPassword = await bcrypt.hash(new_password.trim(), 10);
+      updateQuery = 'UPDATE users SET full_name = ?, email = ?, password_hash = ?';
+      params = [full_name, email, hashedPassword, userId];
+      console.log('🔧 Incluyendo nueva contraseña hasheada');
+    }
+    
+    updateQuery += ' WHERE id = ?';
+    
+    // Actualización directa usando una consulta SQL simple
+    const db = await DatabaseService.getDB();
+    const result = await db.run(updateQuery, params);
+    
+    console.log('🔧 Resultado directo:', result);
+    
+    if (result.changes > 0) {
+      // Actualizar sesión
+      req.session.user.full_name = full_name;
+      req.session.user.email = email;
+      
+      res.json({ 
+        success: true, 
+        message: 'Perfil actualizado correctamente (método directo)',
+        changes: result.changes
+      });
+    } else {
+      res.status(400).json({ error: 'No se pudo actualizar el perfil' });
+    }
+    
+  } catch (error) {
+    console.error('Error en actualización directa:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ================= RUTAS DE RESEÑAS =================
+app.get('/review/:id', ReviewController.showReview);
+app.get('/reviews/new', requireAuth, ReviewController.showNewUserReviewForm);
+app.post('/reviews/new', requireAuth, ReviewController.createUserReview);
+
+// ================= RUTAS DE ADMIN WEB =================
+app.get('/admin', requireAuth, requireAdmin, AdminController.showDashboard);
+
+// Función helper segura para rutas
+const safeRoute = (controller, methodName, fallbackMessage = 'Controlador no disponible') => {
+  if (controller && controller[methodName]) {
+    return controller[methodName];
+  } else {
+    console.error(`❌ Controlador no disponible: ${methodName}`);
+    return (req, res) => {
+      if (req.accepts('html')) {
+        res.status(500).render('error', {
+          title: 'Error',
+          message: fallbackMessage,
+          user: req.session.user
+        });
+      } else {
+        res.status(500).json({ error: fallbackMessage });
+      }
+    };
+  }
+};
+
+// Admin - películas (RUTAS SEGURAS)
+app.get('/admin/movies/new', requireAdmin, safeRoute(MovieController, 'showNewMovieForm'));
+app.post('/admin/movies/new', requireAdmin, handleMovieUpload, safeRoute(MovieController, 'createMovie'));
+app.get('/admin/movies/:id/edit', requireAdmin, safeRoute(MovieController, 'showEditMovieForm'));
+app.post('/admin/movies/:id/edit', requireAdmin, handleMovieUpload, safeRoute(MovieController, 'updateMovie'));
+app.post('/admin/movies/:id/delete', requireAdmin, safeRoute(MovieController, 'deleteMovie'));
+app.post('/admin/movies/:id/activate', requireAdmin, safeRoute(MovieController, 'activateMovie'));
+
+// Admin - usuarios (RUTAS SEGURAS)
+app.get('/admin/users/new', requireAdmin, safeRoute(AdminController, 'showNewUserForm'));
+app.post('/admin/users/new', requireAdmin, safeRoute(AdminController, 'createUser'));
+app.get('/admin/users/:id/edit', requireAdmin, safeRoute(AdminController, 'showEditUserForm'));
+app.post('/admin/users/:id/edit', requireAdmin, safeRoute(AdminController, 'updateUser'));
+app.post('/admin/users/:id/delete', requireAdmin, safeRoute(AdminController, 'deleteUser'));
+
+// Admin - reseñas (RUTAS SEGURAS)
+app.get('/admin/reviews/new', requireAdmin, safeRoute(ReviewController, 'showNewReviewForm'));
+app.post('/admin/reviews/new', requireAdmin, upload.single('review_image'), safeRoute(ReviewController, 'createReviewAdmin'));
+app.get('/admin/reviews/:id/edit', requireAdmin, safeRoute(ReviewController, 'showEditReviewForm'));
+app.post('/admin/reviews/:id/edit', requireAdmin, upload.single('review_image'), safeRoute(ReviewController, 'updateReviewAdmin'));
+app.get('/admin/reviews/:id/toggle-featured', requireAdmin, safeRoute(ReviewController, 'toggleFeatured'));
+app.post('/admin/reviews/:id/delete', requireAdmin, safeRoute(ReviewController, 'deleteReviewAdmin'));
+
+// ================= RUTAS DE API =================
 
 /**
  * @swagger
@@ -625,128 +1142,36 @@ app.get('/api/auth/verify', requireAuthAPI, (req, res) => {
   res.json({ valid: true, user: req.user });
 });
 
-/**
- * @swagger
- * /api/user/profile:
- *   get:
- *     summary: Obtener perfil del usuario
- *     description: Retorna la información del usuario autenticado
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Perfil obtenido exitosamente
- */
-app.get('/api/user/profile', requireAuthAPI, UserController.getProfile);
+// API - Perfil de usuario (CON SESIÓN PARA WEB)
+app.get('/api/user/profile', requireAuth, UserController.getProfile);
+app.put('/api/user/profile', requireAuth, UserController.updateProfile); // Usa sesión
+app.post('/api/user/membership/purchase', requireAuth, ProfileController.purchaseMembership);
 
-/**
- * @swagger
- * /api/reviews:
- *   get:
- *     summary: Obtener todas las reseñas
- *     description: Retorna la lista completa de reseñas
- *     tags: [Reviews]
- *     responses:
- *       200:
- *         description: Lista de reseñas obtenida exitosamente
- */
+// API - Reseñas
 app.get('/api/reviews', ReviewController.getAllReviews);
-
-/**
- * @swagger
- * /api/reviews/{id}:
- *   get:
- *     summary: Obtener reseña por ID
- *     description: Retorna una reseña específica por su ID
- *     tags: [Reviews]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Reseña encontrada
- *       404:
- *         description: Reseña no encontrada
- */
 app.get('/api/reviews/:id', ReviewController.getReviewById);
-
-/**
- * @swagger
- * /api/reviews:
- *   post:
- *     summary: Crear nueva reseña
- *     description: Crea una nueva reseña (requiere autenticación)
- *     tags: [Reviews]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - title
- *               - content
- *               - rating
- *               - movie_title
- *             properties:
- *               title:
- *                 type: string
- *                 example: Gran película
- *               content:
- *                 type: string
- *                 example: Me encantó la trama
- *               rating:
- *                 type: integer
- *                 minimum: 1
- *                 maximum: 5
- *                 example: 5
- *               movie_title:
- *                 type: string
- *                 example: Avatar
- *     responses:
- *       201:
- *         description: Reseña creada exitosamente
- */
 app.post('/api/reviews', requireAuthAPI, ReviewController.createReviewAPI);
 
-/**
- * @swagger
- * /api/admin/users:
- *   get:
- *     summary: Obtener todos los usuarios (Admin)
- *     description: Retorna la lista completa de usuarios
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Lista de usuarios obtenida
- *       403:
- *         description: No tiene permisos de administrador
- */
+// API - Administración (CORREGIDO - usar AdminController para update y delete)
 app.get('/api/admin/users', requireAuthAPI, requireAdminAPI, UserController.listUsers);
+app.put('/api/admin/users/:id', requireAuthAPI, requireAdminAPI, AdminController.updateUser);
+app.delete('/api/admin/users/:id', requireAuthAPI, requireAdminAPI, AdminController.deleteUser);
 
-// Rutas CRUD protegidas para Categories
+// API - Categorías
 app.get('/api/categories', requireAuthAPI, CategoryController.list);
 app.post('/api/categories', requireAuthAPI, CategoryController.create);
 app.get('/api/categories/:id', requireAuthAPI, CategoryController.getById);
 app.put('/api/categories/:id', requireAuthAPI, CategoryController.update);
 app.delete('/api/categories/:id', requireAuthAPI, CategoryController.remove);
 
-// Rutas CRUD protegidas para Tags
+// API - Tags
 app.get('/api/tags', requireAuthAPI, TagController.list);
 app.post('/api/tags', requireAuthAPI, TagController.create);
 app.get('/api/tags/:id', requireAuthAPI, TagController.getById);
 app.put('/api/tags/:id', requireAuthAPI, TagController.update);
 app.delete('/api/tags/:id', requireAuthAPI, TagController.remove);
 
-// Rutas de gestión de Products (protegidas)
+// API - Productos
 app.post('/api/products', requireAuthAPI, ProductController.create);
 app.get('/api/products/:id', requireAuthAPI, ProductController.getById);
 app.put('/api/products/:id', requireAuthAPI, ProductController.update);
@@ -755,55 +1180,6 @@ app.delete('/api/products/:id', requireAuthAPI, ProductController.remove);
 // Rutas públicas de productos
 app.get('/products', ProductController.listPublic);
 app.get('/p/:idslug', ProductController.showPublic);
-
-// ================= RUTAS DE ADMIN WEB =================
-app.get('/admin', requireAuth, AdminController.showDashboard);
-
-// Función helper segura para rutas
-const safeRoute = (controller, methodName, fallbackMessage = 'Controlador no disponible') => {
-  if (controller && controller[methodName]) {
-    return controller[methodName];
-  } else {
-    console.error(`❌ Controlador no disponible: ${methodName}`);
-    return (req, res) => {
-      if (req.accepts('html')) {
-        res.status(500).render('error', {
-          title: 'Error',
-          message: fallbackMessage,
-          user: req.session.user
-        });
-      } else {
-        res.status(500).json({ error: fallbackMessage });
-      }
-    };
-  }
-};
-
-// Admin - películas (RUTAS SEGURAS - CORREGIDAS CON HANDLEMOVIEUPLOAD)
-app.get('/admin/movies/new', requireAdmin, safeRoute(MovieController, 'showNewMovieForm'));
-app.post('/admin/movies/new', requireAdmin, handleMovieUpload, safeRoute(MovieController, 'createMovie'));
-app.get('/admin/movies/:id/edit', requireAdmin, safeRoute(MovieController, 'showEditMovieForm'));
-app.post('/admin/movies/:id/edit', requireAdmin, handleMovieUpload, safeRoute(MovieController, 'updateMovie'));
-app.post('/admin/movies/:id/delete', requireAdmin, safeRoute(MovieController, 'deleteMovie'));
-app.post('/admin/movies/:id/activate', requireAdmin, safeRoute(MovieController, 'activateMovie'));
-app.post('/admin/movies/:id/update', requireAdmin, handleMovieUpload, safeRoute(MovieController, 'updateMovie'));
-
-// Admin - usuarios (RUTAS SEGURAS)
-app.get('/admin/users/new', requireAdmin, safeRoute(AdminController, 'showNewUserForm'));
-app.post('/admin/users/new', requireAdmin, safeRoute(AdminController, 'createUser'));
-app.get('/admin/users/:id/edit', requireAdmin, safeRoute(AdminController, 'showEditUserForm'));
-app.post('/admin/users/:id/edit', requireAdmin, safeRoute(AdminController, 'updateUser'));
-app.post('/admin/users/:id/delete', requireAdmin, safeRoute(AdminController, 'deleteUser'));
-app.post('/admin/users/:id/update', requireAdmin, safeRoute(AdminController, 'updateUser'));
-
-// Admin - reseñas (RUTAS SEGURAS)
-app.get('/admin/reviews/new', requireAdmin, safeRoute(ReviewController, 'showNewReviewForm'));
-app.post('/admin/reviews/new', requireAdmin, upload.single('review_image'), safeRoute(ReviewController, 'createReviewAdmin'));
-app.get('/admin/reviews/:id/edit', requireAdmin, safeRoute(ReviewController, 'showEditReviewForm'));
-app.post('/admin/reviews/:id/edit', requireAdmin, upload.single('review_image'), safeRoute(ReviewController, 'updateReviewAdmin'));
-app.get('/admin/reviews/:id/toggle-featured', requireAdmin, safeRoute(ReviewController, 'toggleFeatured'));
-app.post('/admin/reviews/:id/delete', requireAdmin, safeRoute(ReviewController, 'deleteReviewAdmin'));
-app.post('/admin/reviews/:id/update', requireAdmin, upload.single('review_image'), safeRoute(ReviewController, 'updateReviewAdmin'));
 
 // ================= RUTA DE LOGOUT =================
 app.post('/logout', (req, res) => {
@@ -894,10 +1270,17 @@ const startServer = async () => {
       console.log('📚 Documentación API: http://localhost:' + PORT + '/api-docs');
       console.log('🔐 API Health: http://localhost:' + PORT + '/health');
       console.log('🧪 API Test: http://localhost:' + PORT + '/api/test');
+      console.log('🛒 Compra de películas: http://localhost:' + PORT + '/purchase-movie?movie=Avatar&price=3.99');
       
       console.log('\n💡 CREDENCIALES PARA ACCEDER:');
       console.log('   👑 ADMIN: admin / admin123');
       console.log('   👤 USER:  usuario / password123');
+      
+      console.log('\n🔐 RUTAS DE PERFIL FUNCIONALES:');
+      console.log('   👤 Perfil web: http://localhost:' + PORT + '/user/profile');
+      console.log('   🔄 API Perfil (sesión): PUT http://localhost:' + PORT + '/api/user/profile/session');
+      console.log('   🔧 API Perfil (directa): PUT http://localhost:' + PORT + '/api/user/profile/direct');
+      console.log('   🐛 Debug usuarios: http://localhost:' + PORT + '/api/debug/users');
     });
     
   } catch (error) {

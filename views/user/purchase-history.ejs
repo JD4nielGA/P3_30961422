@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Historial de Compras - CineCríticas</title>
     <link rel="stylesheet" href="/css/user-profile.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         .purchases-container {
             padding: 20px;
@@ -19,7 +20,7 @@
         }
         .purchase-header {
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
         }
@@ -90,6 +91,60 @@
             color: #718096;
             font-size: 0.9em;
         }
+        .btn-primary {
+            background: #4299e1;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-secondary {
+            background: #718096;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .profile-actions {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 10px;
+        }
+        .profile-actions h2 {
+            margin-bottom: 15px;
+            color: #2d3748;
+            font-size: 1.1em;
+        }
+        .action-links {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .action-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 15px;
+            background: white;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #4a5568;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        .action-link:hover {
+            background: #4299e1;
+            color: white;
+            border-color: #4299e1;
+            transform: translateX(5px);
+        }
+        .action-icon {
+            width: 20px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -101,29 +156,32 @@
                 <a href="/user/my-reviews" class="<%= currentPath === '/user/my-reviews' ? 'active' : '' %>">Mis Reseñas</a>
                 <a href="/user/purchase-history" class="<%= currentPath === '/user/purchase-history' ? 'active' : '' %>">Historial de Compras</a>
                 <a href="/user/membership" class="<%= currentPath === '/user/membership' ? 'active' : '' %>">Membresías</a>
-                <div class="profile-actions">
-                    <h2>Acciones Rápidas</h2>
-                    <div class="action-links">
-                        <a href="/reviews/new" class="action-link">
-                            <span class="action-icon">✍️</span>
-                            Escribir Nueva Reseña
-                        </a>
-                        <br>
-                        <br>
-                        <a href="/user/my-reviews" class="action-link">
-                            <span class="action-icon">📝</span>
-                            Ver todas mis reseñas
-                        </a>
-                    </div>
-                </div>
             </nav>
+            
+            <div class="profile-actions">
+                <h2>Acciones Rápidas</h2>
+                <div class="action-links">
+                    <a href="/reviews/new" class="action-link">
+                        <span class="action-icon">✍️</span>
+                        Escribir Nueva Reseña
+                    </a>
+                    <a href="/user/my-reviews" class="action-link">
+                        <span class="action-icon">📝</span>
+                        Ver todas mis reseñas
+                    </a>
+                    <a href="/" class="action-link">
+                        <span class="action-icon">🏠</span>
+                        Volver al Inicio
+                    </a>
+                </div>
+            </div>
         </div>
         
         <div class="user-content">
             <div class="purchases-container">
                 <h1>Historial de Compras</h1>
 
-                <% if (purchases && purchases.length > 0) { %>
+                <% if (typeof purchases !== 'undefined' && purchases && purchases.length > 0) { %>
                     <div class="stats-grid">
                         <div class="stat-card">
                             <div class="stat-number"><%= purchases.length %></div>
@@ -144,7 +202,7 @@
                             <div class="purchase-card">
                                 <div class="purchase-header">
                                     <div class="purchase-title">
-                                        <%= purchase.product_name || 'Producto' %>
+                                        <%= purchase.product_name || purchase.movie_title || 'Producto' %>
                                         <% if (purchase.type === 'membership') { %>
                                             <span style="color: #718096; font-size: 0.9em;">(Membresía)</span>
                                         <% } else { %>
@@ -159,6 +217,10 @@
                                 <div class="purchase-details">
                                     <% if (purchase.description) { %>
                                         <p><%= purchase.description %></p>
+                                    <% } else if (purchase.type === 'membership') { %>
+                                        <p>Membresía <strong><%= purchase.plan_type %></strong> - Acceso completo a contenido premium</p>
+                                    <% } else if (purchase.movie_title) { %>
+                                        <p>Compra de película: <strong><%= purchase.movie_title %></strong></p>
                                     <% } %>
                                     
                                     <div class="purchase-status <%= purchase.status === 'completed' ? 'status-completed' : 'status-pending' %>">
@@ -182,6 +244,20 @@
                                         ID de transacción: <%= purchase.transaction_id %>
                                     </div>
                                 <% } %>
+
+                                <!-- Acciones según el tipo de compra -->
+                                <div style="margin-top: 15px; display: flex; gap: 10px;">
+                                    <% if (purchase.type === 'movie' && purchase.movie_id) { %>
+                                        <a href="/movie/<%= purchase.movie_id %>" class="btn-primary" style="padding: 5px 10px; font-size: 0.8em;">
+                                            <i class="fas fa-eye"></i> Ver Película
+                                        </a>
+                                    <% } %>
+                                    <% if (purchase.type === 'membership') { %>
+                                        <span class="btn-secondary" style="padding: 5px 10px; font-size: 0.8em; opacity: 0.7;">
+                                            <i class="fas fa-crown"></i> Membresía Activa
+                                        </span>
+                                    <% } %>
+                                </div>
                             </div>
                         <% }); %>
                     </div>
@@ -191,9 +267,6 @@
                         <h3>No tienes compras registradas</h3>
                         <p>Cuando realices compras en CineCríticas, aparecerán aquí.</p>
                         <div style="margin-top: 20px;">
-                            <a href="/products" class="btn-primary">
-                                <i class="fas fa-store"></i> Ver Productos Disponibles
-                            </a>
                             <a href="/user/membership" class="btn-secondary" style="margin-left: 10px;">
                                 <i class="fas fa-crown"></i> Ver Membresías
                             </a>

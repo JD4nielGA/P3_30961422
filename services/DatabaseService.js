@@ -12,6 +12,7 @@ class DatabaseService {
       this.Tag = models.Tag;
       this.Product = models.Product;
       this.Series = models.Series;
+      this.Purchase = models.Purchase;
       this.initializeDatabase = models.initializeDatabase;
       this.sequelize = models.sequelize;
       
@@ -59,7 +60,353 @@ class DatabaseService {
     return true;
   }
 
-  // ================= MÉTODOS DE USUARIOS =================
+  // ================= MÉTODOS DE RESEÑAS (CORREGIDOS) =================
+  
+  // ✅ MÉTODO NUEVO: Obtener reseñas por usuario ID
+  async getReviewsByUserId(userId) {
+    try {
+      await this.ensureDatabase();
+      console.log(`📝 Obteniendo reseñas para usuario: ${userId}`);
+      
+      const reviews = await this.Review.findAll({
+        where: { user_id: userId },
+        include: [
+          {
+            model: this.Movie,
+            as: 'movie',
+            attributes: ['id', 'title', 'poster_image']
+          },
+          {
+            model: this.User,
+            as: 'user',
+            attributes: ['id', 'username', 'full_name']
+          }
+        ],
+        order: [['created_at', 'DESC']]
+      });
+      
+      console.log(`✅ Encontradas ${reviews.length} reseñas para usuario ${userId}`);
+      return reviews;
+    } catch (error) {
+      console.error('❌ Error en getReviewsByUserId:', error.message);
+      return [];
+    }
+  }
+
+  async getReviewById(id) {
+    try {
+      await this.ensureDatabase();
+      return await this.Review.findByPk(id, {
+        include: [
+          {
+            model: this.User,
+            as: 'user',
+            attributes: ['id', 'username', 'full_name']
+          },
+          {
+            model: this.Movie,
+            as: 'movie',
+            attributes: ['id', 'title', 'poster_image']
+          }
+        ]
+      });
+    } catch (error) {
+      console.error('Error en getReviewById:', error.message);
+      return null;
+    }
+  }
+
+  async getAllReviews() {
+    try {
+      await this.ensureDatabase();
+      return await this.Review.findAll({
+        include: [{
+          model: this.User,
+          as: 'user',
+          attributes: ['id', 'username', 'full_name']
+        }],
+        order: [['created_at', 'DESC']]
+      });
+    } catch (error) {
+      console.error('Error en getAllReviews:', error.message);
+      return [];
+    }
+  }
+
+  async getFeaturedReviews() {
+    try {
+      await this.ensureDatabase();
+      return await this.Review.findAll({
+        where: { is_featured: true },
+        include: [{
+          model: this.User,
+          as: 'user',
+          attributes: ['id', 'username', 'full_name']
+        }],
+        order: [['created_at', 'DESC']],
+        limit: 5
+      });
+    } catch (error) {
+      console.error('Error en getFeaturedReviews:', error.message);
+      return [];
+    }
+  }
+
+  async createReview(reviewData) {
+    try {
+      await this.ensureDatabase();
+      console.log('📝 Creando reseña para usuario:', reviewData.user_id);
+      
+      const review = await this.Review.create(reviewData);
+      console.log('✅ Reseña creada ID:', review.id);
+      
+      return review;
+    } catch (error) {
+      console.error('Error en createReview:', error.message);
+      throw error;
+    }
+  }
+
+  async updateReview(id, reviewData) {
+    try {
+      await this.ensureDatabase();
+      const review = await this.Review.findByPk(id);
+      if (!review) throw new Error('Reseña no encontrada');
+      
+      console.log('📝 Actualizando reseña ID:', id);
+      const updatedReview = await review.update(reviewData);
+      console.log('✅ Reseña actualizada ID:', id);
+      
+      return updatedReview;
+    } catch (error) {
+      console.error('Error en updateReview:', error.message);
+      throw error;
+    }
+  }
+
+  async deleteReview(id) {
+    try {
+      await this.ensureDatabase();
+      const review = await this.Review.findByPk(id);
+      if (!review) throw new Error('Reseña no encontrada');
+      
+      console.log('🗑️ Eliminando reseña ID:', id);
+      await review.destroy();
+      console.log('✅ Reseña eliminada ID:', id);
+      
+      return true;
+    } catch (error) {
+      console.error('Error en deleteReview:', error.message);
+      throw error;
+    }
+  }
+
+  // ================= MÉTODOS DE COMPRAS (OPTIMIZADOS) =================
+  
+  async createPurchase(purchaseData) {
+    try {
+      await this.ensureDatabase();
+      console.log('🛒 Creando compra para usuario:', purchaseData.user_id);
+      
+      const purchase = await this.Purchase.create({
+        user_id: purchaseData.user_id,
+        type: purchaseData.type || 'movie',
+        movie_id: purchaseData.movie_id || null,
+        movie_title: purchaseData.movie_title || null,
+        plan_type: purchaseData.plan_type || null,
+        amount: purchaseData.amount || 0,
+        payment_method: purchaseData.payment_method || 'stripe',
+        status: purchaseData.status || 'completed',
+        transaction_id: purchaseData.transaction_id || `TXN_${Date.now()}`,
+        created_at: new Date(),
+        updated_at: new Date()
+      });
+      
+      console.log('✅ Compra creada ID:', purchase.id);
+      return purchase;
+    } catch (error) {
+      console.error('❌ Error en createPurchase:', error.message);
+      throw error;
+    }
+  }
+
+  async getMovieByTitle(title) {
+    try {
+      await this.ensureDatabase();
+      console.log(`🔍 Buscando película por título: ${title}`);
+      
+      const movie = await this.Movie.findOne({ 
+        where: { title: title } 
+      });
+      
+      console.log(`✅ Película encontrada:`, movie ? movie.title : 'No encontrada');
+      return movie;
+    } catch (error) {
+      console.error('❌ Error en getMovieByTitle:', error.message);
+      return null;
+    }
+  }
+
+  async recordPurchase(purchaseData) {
+    try {
+      // ✅ CORREGIDO: Usar createPurchase en lugar de duplicar lógica
+      return await this.createPurchase(purchaseData);
+    } catch (error) {
+      console.error('❌ Error en recordPurchase:', error.message);
+      throw error;
+    }
+  }
+
+  async getPurchaseById(purchaseId) {
+    try {
+      await this.ensureDatabase();
+      const purchase = await this.Purchase.findByPk(purchaseId);
+      return purchase;
+    } catch (error) {
+      console.error('❌ Error en getPurchaseById:', error.message);
+      return null;
+    }
+  }
+
+  async getUserPurchases(userId) {
+    try {
+      await this.ensureDatabase();
+      console.log('📋 Obteniendo compras del usuario:', userId);
+      
+      const purchases = await this.Purchase.findAll({
+        where: { user_id: userId },
+        order: [['created_at', 'DESC']]
+      });
+      
+      console.log(`✅ Encontradas ${purchases.length} compras para usuario ${userId}`);
+      return purchases;
+    } catch (error) {
+      console.error('❌ Error en getUserPurchases:', error.message);
+      return [];
+    }
+  }
+
+  async updatePurchaseStatus(id, status, transactionId = null) {
+    try {
+      await this.ensureDatabase();
+      const purchase = await this.Purchase.findByPk(id);
+      if (!purchase) throw new Error('Compra no encontrada');
+      
+      const updateData = { 
+        status,
+        updated_at: new Date()
+      };
+      if (transactionId) updateData.transaction_id = transactionId;
+      
+      return await purchase.update(updateData);
+    } catch (error) {
+      console.error('❌ Error en updatePurchaseStatus:', error.message);
+      throw error;
+    }
+  }
+
+  async processMoviePurchase(userId, movieData, paymentData) {
+    try {
+      await this.ensureDatabase();
+      
+      const purchaseData = {
+        user_id: userId,
+        type: 'movie',
+        movie_id: movieData.id,
+        movie_title: movieData.title,
+        amount: movieData.price || 3.99,
+        status: 'completed',
+        payment_method: paymentData.payment_method,
+        transaction_id: paymentData.transaction_id || `TXN_${Date.now()}`
+      };
+      
+      const purchase = await this.createPurchase(purchaseData);
+      
+      // Agregar también al historial del usuario (backward compatibility)
+      await this.addPurchaseToHistory(userId, {
+        type: 'movie',
+        movie_title: movieData.title,
+        price: movieData.price || 3.99,
+        status: 'completed',
+        transaction_id: purchaseData.transaction_id
+      });
+      
+      return purchase;
+    } catch (error) {
+      console.error('❌ Error en processMoviePurchase:', error.message);
+      throw error;
+    }
+  }
+
+  async processMembershipPurchase(userId, planType, paymentData) {
+    try {
+      await this.ensureDatabase();
+      
+      const planPrices = {
+        'premium': 4.99,
+        'vip': 9.99
+      };
+      
+      const amount = planPrices[planType] || 4.99;
+      const durationDays = 30;
+      
+      const purchaseData = {
+        user_id: userId,
+        type: 'membership',
+        plan_type: planType,
+        amount: amount,
+        status: 'completed',
+        payment_method: paymentData.payment_method,
+        transaction_id: paymentData.transaction_id || `TXN_${Date.now()}`
+      };
+      
+      const purchase = await this.createPurchase(purchaseData);
+      
+      // Actualizar membresía del usuario
+      await this.updateMembership(userId, planType, durationDays);
+      
+      return purchase;
+    } catch (error) {
+      console.error('❌ Error en processMembershipPurchase:', error.message);
+      throw error;
+    }
+  }
+
+  async getPurchaseStats(userId) {
+    try {
+      await this.ensureDatabase();
+      
+      const purchases = await this.getUserPurchases(userId);
+      const totalSpent = purchases.reduce((total, purchase) => 
+        total + parseFloat(purchase.amount || 0), 0
+      );
+      
+      const moviePurchases = purchases.filter(p => p.type === 'movie').length;
+      const membershipPurchases = purchases.filter(p => p.type === 'membership').length;
+      const completedPurchases = purchases.filter(p => p.status === 'completed').length;
+      
+      return {
+        totalPurchases: purchases.length,
+        totalSpent: totalSpent.toFixed(2),
+        moviePurchases,
+        membershipPurchases,
+        completedPurchases,
+        pendingPurchases: purchases.length - completedPurchases
+      };
+    } catch (error) {
+      console.error('❌ Error en getPurchaseStats:', error.message);
+      return {
+        totalPurchases: 0,
+        totalSpent: '0.00',
+        moviePurchases: 0,
+        membershipPurchases: 0,
+        completedPurchases: 0,
+        pendingPurchases: 0
+      };
+    }
+  }
+
+  // ================= MÉTODOS DE USUARIOS (CORREGIDOS) =================
   async getUserByUsername(username) {
     try {
       await this.ensureDatabase();
@@ -77,7 +424,8 @@ class DatabaseService {
   async getUserById(id) {
     try {
       await this.ensureDatabase();
-      return await this.User.findByPk(id);
+      const user = await this.User.findByPk(id);
+      return user;
     } catch (error) {
       console.error('Error en getUserById:', error.message);
       return null;
@@ -103,20 +451,17 @@ class DatabaseService {
       const bcrypt = require('bcryptjs');
       const payload = { ...userData };
       
-      // ✅ CORREGIDO: Siempre hashear la contraseña si no es un hash bcrypt
       if (payload.password_hash && !payload.password_hash.startsWith('$2')) {
         console.log('🔄 Hasheando contraseña en texto plano...');
         payload.password_hash = await bcrypt.hash(payload.password_hash, 10);
       }
       
-      // Manejar campo password alternativo
       if (!payload.password_hash && payload.password) {
         console.log('🔄 Hasheando contraseña del campo "password"...');
         payload.password_hash = await bcrypt.hash(payload.password, 10);
         delete payload.password;
       }
 
-      // Basic validation
       if (!payload.username || !payload.email || !payload.password_hash) {
         throw new Error('username, email y password_hash son requeridos');
       }
@@ -141,36 +486,45 @@ class DatabaseService {
       await this.ensureDatabase();
       const user = await this.User.findByPk(id);
       if (!user) throw new Error('Usuario no encontrado');
-      return await user.update(userData);
+      
+      console.log('👤 Actualizando usuario ID:', id);
+      const updatedUser = await user.update(userData);
+      console.log('✅ Usuario actualizado ID:', id);
+      
+      return updatedUser;
     } catch (error) {
       console.error('Error en updateUser:', error.message);
       throw error;
     }
   }
 
-  // ================= MÉTODOS DE PERFIL DE USUARIO =================
+  // ================= MÉTODOS DE PERFIL DE USUARIO (CORREGIDOS) =================
   async updateUserProfile(userId, profileData) {
     try {
       await this.ensureDatabase();
       const user = await this.User.findByPk(userId);
       if (!user) throw new Error('Usuario no encontrado');
       
-      const allowedFields = ['full_name', 'email', 'membership_type', 'membership_expires', 'purchase_history'];
+      console.log('👤 Actualizando perfil para usuario:', userId);
+      
+      const allowedFields = ['full_name', 'email'];
       const updateData = {};
       
+      // ✅ CORREGIDO: Solo permitir campos específicos para seguridad
       allowedFields.forEach(field => {
         if (profileData[field] !== undefined) {
           updateData[field] = profileData[field];
         }
       });
       
+      // Manejar cambio de contraseña
       if (profileData.new_password && profileData.current_password) {
         const bcrypt = require('bcryptjs');
         const isValidPassword = await bcrypt.compare(profileData.current_password, user.password_hash);
         if (!isValidPassword) {
           throw new Error('Contraseña actual incorrecta');
         }
-        updateData.password_hash = profileData.new_password;
+        updateData.password_hash = await bcrypt.hash(profileData.new_password, 10);
       }
       
       const updatedUser = await user.update(updateData);
@@ -178,6 +532,7 @@ class DatabaseService {
       const userResponse = updatedUser.toJSON();
       delete userResponse.password_hash;
       
+      console.log('✅ Perfil actualizado para usuario:', userId);
       return userResponse;
     } catch (error) {
       console.error('Error en updateUserProfile:', error.message);
@@ -245,24 +600,21 @@ class DatabaseService {
       
       if (!user) throw new Error('Usuario no encontrado');
       
-      const userReviews = await this.Review.findAll({
-        where: { user_id: userId },
-        include: [{
-          model: this.Movie,
-          as: 'movie',
-          attributes: ['id', 'title', 'poster_image']
-        }],
-        order: [['created_at', 'DESC']]
-      });
+      const userReviews = await this.getReviewsByUserId(userId);
+      const userPurchases = await this.getUserPurchases(userId);
       
       return {
         user: user.toJSON(),
         reviews: userReviews,
+        purchases: userPurchases,
         stats: {
           totalReviews: userReviews.length,
           membershipStatus: user.membership_type,
           membershipExpires: user.membership_expires,
-          totalPurchases: (user.purchase_history || []).length
+          totalPurchases: userPurchases.length,
+          totalSpent: userPurchases.reduce((total, purchase) => 
+            total + parseFloat(purchase.amount || 0), 0
+          ).toFixed(2)
         }
       };
     } catch (error) {
@@ -278,14 +630,16 @@ class DatabaseService {
       if (!user) throw new Error('Usuario no encontrado');
       
       const reviewsCount = await this.Review.count({ where: { user_id: userId } });
-      const purchases = user.purchase_history || [];
+      const purchases = await this.getUserPurchases(userId);
       
       return {
         reviewsCount,
         membershipType: user.membership_type || 'free',
         membershipExpires: user.membership_expires,
         totalPurchases: purchases.length,
-        totalSpent: purchases.reduce((total, purchase) => total + (purchase.price || 0), 0)
+        totalSpent: purchases.reduce((total, purchase) => 
+          total + parseFloat(purchase.amount || 0), 0
+        ).toFixed(2)
       };
     } catch (error) {
       console.error('Error en getUserProfileStats:', error.message);
@@ -298,7 +652,12 @@ class DatabaseService {
       await this.ensureDatabase();
       const user = await this.User.findByPk(id);
       if (!user) throw new Error('Usuario no encontrado');
-      return await user.destroy();
+      
+      console.log('🗑️ Eliminando usuario ID:', id);
+      await user.destroy();
+      console.log('✅ Usuario eliminado ID:', id);
+      
+      return true;
     } catch (error) {
       console.error('Error en deleteUser:', error.message);
       throw error;
@@ -312,87 +671,6 @@ class DatabaseService {
     } catch (error) {
       console.error('Error en getUserCount:', error.message);
       return 0;
-    }
-  }
-
-  // ================= MÉTODOS DE RESEÑAS =================
-  async getReviewById(id) {
-    try {
-      await this.ensureDatabase();
-      return await this.Review.findByPk(id);
-    } catch (error) {
-      console.error('Error en getReviewById:', error.message);
-      return null;
-    }
-  }
-
-  async getAllReviews() {
-    try {
-      await this.ensureDatabase();
-      return await this.Review.findAll({
-        include: [{
-          model: this.User,
-          as: 'user',
-          attributes: ['id', 'username']
-        }],
-        order: [['created_at', 'DESC']]
-      });
-    } catch (error) {
-      console.error('Error en getAllReviews:', error.message);
-      return [];
-    }
-  }
-
-  async getFeaturedReviews() {
-    try {
-      await this.ensureDatabase();
-      return await this.Review.findAll({
-        where: { is_featured: true },
-        include: [{
-          model: this.User,
-          as: 'user',
-          attributes: ['id', 'username']
-        }],
-        order: [['created_at', 'DESC']],
-        limit: 5
-      });
-    } catch (error) {
-      console.error('Error en getFeaturedReviews:', error.message);
-      return [];
-    }
-  }
-
-  async createReview(reviewData) {
-    try {
-      await this.ensureDatabase();
-      return await this.Review.create(reviewData);
-    } catch (error) {
-      console.error('Error en createReview:', error.message);
-      throw error;
-    }
-  }
-
-  async updateReview(id, reviewData) {
-    try {
-      await this.ensureDatabase();
-      const review = await this.Review.findByPk(id);
-      if (!review) throw new Error('Reseña no encontrada');
-      return await review.update(reviewData);
-    } catch (error) {
-      console.error('Error en updateReview:', error.message);
-      throw error;
-    }
-  }
-
-  async deleteReview(id) {
-    try {
-      await this.ensureDatabase();
-      const review = await this.Review.findByPk(id);
-      if (!review) throw new Error('Reseña no encontrada');
-      return await review.destroy();
-    } catch (error) {
-      console.error('Error en deleteReview:', error.message);
-      throw error;
     }
   }
 
@@ -439,12 +717,10 @@ class DatabaseService {
     }
   }
 
-  // ✅ MÉTODO CORREGIDO: createMovie con manejo completo de campos
   async createMovie(movieData) {
     try {
       await this.ensureDatabase();
       
-      // ✅ CORREGIDO: Incluir todos los campos necesarios
       const moviePayload = {
         title: movieData.title,
         description: movieData.description || '',
@@ -460,7 +736,6 @@ class DatabaseService {
       const movie = await this.Movie.create(moviePayload);
       console.log('✅ Película creada:', movie.title);
 
-      // Manejar producto asociado
       await this._handleProductAssociation(movie.id, movieData, false);
 
       return movie;
@@ -470,7 +745,6 @@ class DatabaseService {
     }
   }
 
-  // ✅ MÉTODO CORREGIDO: updateMovie con manejo completo de campos
   async updateMovie(id, movieData) {
     try {
       await this.ensureDatabase();
@@ -484,7 +758,6 @@ class DatabaseService {
         throw new Error('Película no encontrada');
       }
 
-      // ✅ CORREGIDO: Mapear campos correctamente
       const updatePayload = {};
       
       if (movieData.title !== undefined) updatePayload.title = movieData.title;
@@ -500,7 +773,6 @@ class DatabaseService {
 
       const updatedMovie = await movie.update(updatePayload);
 
-      // Manejar producto asociado
       await this._handleProductAssociation(id, movieData, true);
 
       return updatedMovie;
@@ -604,9 +876,7 @@ class DatabaseService {
     }
   }
 
-  // ================= MÉTODOS AUXILIARES PARA PRODUCTOS =================
-  
-  // ✅ MÉTODO NUEVO: Manejar asociación de productos
+  // ================= MÉTODOS AUXILIARES =================
   async _handleProductAssociation(movieId, movieData, isUpdate = false) {
     try {
       if (!this.Product) {
@@ -620,7 +890,6 @@ class DatabaseService {
         });
 
         if (product) {
-          // Actualizar producto existente
           await product.update({
             name: movieData.title || product.name,
             price: parseFloat(movieData.price),
@@ -628,7 +897,6 @@ class DatabaseService {
           });
           console.log('📦 Producto actualizado para película', movieId);
         } else {
-          // Crear nuevo producto
           await this.Product.create({
             name: movieData.title || 'Producto sin nombre',
             price: parseFloat(movieData.price),
@@ -642,11 +910,9 @@ class DatabaseService {
       }
     } catch (error) {
       console.error('❌ Error en _handleProductAssociation:', error.message);
-      // No lanzar error para no interrumpir el flujo principal
     }
   }
 
-  // ✅ MÉTODO NUEVO: Obtener producto para película
   async _getProductForMovie(movieId) {
     try {
       if (!this.Product) return null;
@@ -675,7 +941,6 @@ class DatabaseService {
       if (!existingAdmin) {
         console.log('👑 Creando usuario admin...');
         
-        // ✅ CORREGIDO: Hashear la contraseña correctamente
         const adminPasswordHash = await bcrypt.hash('admin123', 10);
         
         await this.User.create({
@@ -701,7 +966,6 @@ class DatabaseService {
         console.log('✅ Usuario admin creado con contraseña hasheada');
       } else {
         console.log('✅ Usuario admin ya existe');
-        // ✅ Si ya existe pero tiene contraseña en texto plano, actualízala
         if (existingAdmin.password_hash && !existingAdmin.password_hash.startsWith('$2')) {
           console.log('🔄 Actualizando contraseña del admin a formato bcrypt...');
           const adminPasswordHash = await bcrypt.hash('admin123', 10);
@@ -714,7 +978,6 @@ class DatabaseService {
       if (!existingUser) {
         console.log('👤 Creando usuario normal...');
         
-        // ✅ CORREGIDO: Hashear la contraseña correctamente
         const userPasswordHash = await bcrypt.hash('password123', 10);
         
         await this.User.create({
@@ -730,7 +993,6 @@ class DatabaseService {
         console.log('✅ Usuario normal creado con contraseña hasheada');
       } else {
         console.log('✅ Usuario normal ya existe');
-        // ✅ Si ya existe pero tiene contraseña en texto plano, actualízala
         if (existingUser.password_hash && !existingUser.password_hash.startsWith('$2')) {
           console.log('🔄 Actualizando contraseña del usuario a formato bcrypt...');
           const userPasswordHash = await bcrypt.hash('password123', 10);
@@ -757,6 +1019,7 @@ class DatabaseService {
       const reviewsCount = await this.Review.count();
       const moviesCount = await this.Movie.count();
       const seriesCount = await this.Series.count();
+      const purchasesCount = await this.Purchase.count();
 
       return {
         database: {
@@ -764,6 +1027,7 @@ class DatabaseService {
           reviewsCount,
           moviesCount,
           seriesCount,
+          purchasesCount,
           dialect: 'SQLite with Sequelize',
           initialized: this.initialized
         }
@@ -776,6 +1040,7 @@ class DatabaseService {
           reviewsCount: 0,
           moviesCount: 0,
           seriesCount: 0,
+          purchasesCount: 0,
           dialect: 'SQLite with Sequelize',
           error: error.message,
           initialized: this.initialized
