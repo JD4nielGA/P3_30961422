@@ -197,17 +197,43 @@ class ProfileController {
     }
   }
 
-  // Membresías - ACTUALIZADO para solo Gratuito y VIP
+  // Membresías - CORREGIDO con manejo de errores para columnas faltantes
   static async membership(req, res) {
     try {
       const userId = req.session.user.id;
       
-      // Obtener información actual del usuario
-      const user = await DatabaseService.User.findByPk(userId, {
-        attributes: ['id', 'username', 'email', 'membership_type', 'membership_expires', 'membership_purchased']
-      });
+      console.log(`🔍 Cargando membresía para usuario: ${userId}`);
+      
+      // Obtener información actual del usuario CON MANEJO DE ERRORES
+      let user;
+      let userData;
 
-      if (!user) {
+      try {
+        // Intentar obtener con columnas de membresía
+        user = await DatabaseService.User.findByPk(userId, {
+          attributes: ['id', 'username', 'email', 'membership_type', 'membership_expires', 'membership_purchased']
+        });
+        
+        if (user) {
+          userData = user.toJSON ? user.toJSON() : user;
+        }
+      } catch (dbError) {
+        console.warn('⚠️ Columnas de membresía no disponibles, usando consulta básica');
+        // Fallback: obtener solo datos básicos
+        user = await DatabaseService.User.findByPk(userId, {
+          attributes: ['id', 'username', 'email']
+        });
+        
+        if (user) {
+          userData = user.toJSON ? user.toJSON() : user;
+          // Agregar valores por defecto
+          userData.membership_type = 'free';
+          userData.membership_expires = null;
+          userData.membership_purchased = null;
+        }
+      }
+
+      if (!userData) {
         return res.status(404).render('error', {
           title: 'Usuario no encontrado',
           message: 'El usuario no existe.',
@@ -215,7 +241,10 @@ class ProfileController {
         });
       }
 
-      const userData = user.toJSON ? user.toJSON() : user;
+      console.log('✅ Datos de membresía cargados:', {
+        membership_type: userData.membership_type,
+        has_expires: !!userData.membership_expires
+      });
       
       res.render('user/membership', {
         title: 'Membresías - CineCríticas',
@@ -263,7 +292,18 @@ class ProfileController {
       }
 
       // Si ya tiene membresía VIP activa, no permitir otra compra
-      if (user.membership_type === 'vip' && user.membership_expires > new Date()) {
+      // Manejar caso donde las columnas de membresía no existen
+      let currentMembershipType = 'free';
+      let currentMembershipExpires = null;
+      
+      try {
+        currentMembershipType = user.membership_type || 'free';
+        currentMembershipExpires = user.membership_expires;
+      } catch (error) {
+        console.warn('⚠️ Columnas de membresía no disponibles, usando valores por defecto');
+      }
+
+      if (currentMembershipType === 'vip' && currentMembershipExpires && new Date(currentMembershipExpires) > new Date()) {
         return res.status(400).json({ 
           success: false,
           error: 'Ya tienes una membresía VIP activa. Podrás renovar cuando expire.' 
@@ -351,23 +391,39 @@ class ProfileController {
     }
   }
 
-  // ✅ NUEVO: Método para verificar estado de membresía
+  // ✅ NUEVO: Método para verificar estado de membresía - CORREGIDO
   static async checkMembershipStatus(req, res) {
     try {
       const userId = req.session.user.id;
       
-      const user = await DatabaseService.User.findByPk(userId, {
-        attributes: ['membership_type', 'membership_expires', 'membership_purchased']
-      });
+      let user;
+      let userData;
 
-      if (!user) {
+      try {
+        // Intentar obtener con columnas de membresía
+        user = await DatabaseService.User.findByPk(userId, {
+          attributes: ['membership_type', 'membership_expires', 'membership_purchased']
+        });
+        
+        if (user) {
+          userData = user.toJSON ? user.toJSON() : user;
+        }
+      } catch (dbError) {
+        console.warn('⚠️ Columnas de membresía no disponibles, usando valores por defecto');
+        userData = {
+          membership_type: 'free',
+          membership_expires: null,
+          membership_purchased: null
+        };
+      }
+
+      if (!userData) {
         return res.status(404).json({ 
           success: false,
           error: 'Usuario no encontrado' 
         });
       }
 
-      const userData = user.toJSON ? user.toJSON() : user;
       const now = new Date();
       const isActive = userData.membership_type === 'vip' && 
                       userData.membership_expires && 
