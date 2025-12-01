@@ -1228,6 +1228,29 @@ app.use((error, req, res, next) => {
   });
 });
 
+
+app.get('/api/system/reset-database', async (req, res) => {
+  try {
+    console.log('🔄 Reseteando base de datos en Render...');
+    
+    // Sincronizar todos los modelos
+    await DatabaseService.sequelize.sync({ force: true });
+    console.log('✅ Base de datos reseteada');
+    
+    // Crear usuarios de prueba
+    await DatabaseService.ensureTestUsers();
+    console.log('✅ Usuarios de prueba creados');
+    
+    res.json({ 
+      success: true, 
+      message: 'Base de datos reseteada correctamente en Render' 
+    });
+  } catch (error) {
+    console.error('❌ Error reseteando BD:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ================= INICIO DEL SERVIDOR =================
 const startServer = async () => {
   try {
