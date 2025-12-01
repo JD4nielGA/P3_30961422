@@ -21,131 +21,175 @@ class MovieController {
   /**
    * Crear nueva película - CORREGIDO con mapeo completo
    */
-  static async createMovie(req, res) {
+  /**
+ * Crear nueva película - VERSIÓN MEJORADA CON MÁS DEBUG
+ */
+static async createMovie(req, res) {
     try {
-      const { title, year, genre, description, type, poster_url, price } = req.body;
-      
-      console.log('🎬 Creando nueva película/serie:', { title, year, genre, type, price });
-      
-      // Validación más robusta
-      if (!title?.trim() || !year?.trim() || !genre?.trim()) {
-        return res.render('movie-form', {
-          title: 'Nueva Película/Serie - CineCríticas',
-          user: req.session.user,
-          movie: null,
-          product: null,
-          error: 'Todos los campos marcados con * son requeridos',
-          success: null
+        const { title, year, genre, description, type, poster_url, price } = req.body;
+        
+        console.log('🎬 DEBUG: Datos recibidos del formulario:', { 
+            title, 
+            year, 
+            genre, 
+            description, 
+            type, 
+            poster_url, 
+            price 
         });
-      }
+        
+        // Validación más robusta
+        if (!title?.trim() || !year?.trim() || !genre?.trim()) {
+            console.log('❌ DEBUG: Faltan campos requeridos');
+            return res.render('movie-form', {
+                title: 'Nueva Película/Serie - CineCríticas',
+                user: req.session.user,
+                movie: null,
+                product: null,
+                error: 'Todos los campos marcados con * son requeridos',
+                success: null
+            });
+        }
 
-      // Validar año
-      const yearNum = parseInt(year);
-      if (isNaN(yearNum) || yearNum < 1888 || yearNum > new Date().getFullYear() + 5) {
-        return res.render('movie-form', {
-          title: 'Nueva Película/Serie - CineCríticas',
-          user: req.session.user,
-          movie: null,
-          product: null,
-          error: 'El año debe ser un valor válido',
-          success: null
+        // Validar año
+        const yearNum = parseInt(year);
+        const currentYear = new Date().getFullYear();
+        if (isNaN(yearNum) || yearNum < 1888 || yearNum > currentYear + 5) {
+            console.log('❌ DEBUG: Año inválido:', year);
+            return res.render('movie-form', {
+                title: 'Nueva Película/Serie - CineCríticas',
+                user: req.session.user,
+                movie: null,
+                product: null,
+                error: `El año debe ser un valor válido entre 1888 y ${currentYear + 5}`,
+                success: null
+            });
+        }
+
+        let final_poster_image = '/images/default-poster.jpg';
+        
+        // Manejar imagen
+        if (req.file) {
+            console.log('🖼️ DEBUG: Archivo recibido:', req.file);
+            const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+            if (!allowedMimes.includes(req.file.mimetype)) {
+                fs.unlinkSync(req.file.path);
+                return res.render('movie-form', {
+                    title: 'Nueva Película/Serie - CineCríticas',
+                    user: req.session.user,
+                    movie: null,
+                    product: null,
+                    error: 'Formato de imagen no válido. Use JPEG, PNG, GIF o WebP',
+                    success: null
+                });
+            }
+            final_poster_image = '/uploads/movies/' + req.file.filename;
+            console.log('🖼️ Imagen subida:', final_poster_image);
+        } else if (poster_url?.trim()) {
+            try {
+                new URL(poster_url.trim());
+                final_poster_image = poster_url.trim();
+                console.log('🌐 Usando URL externa:', final_poster_image);
+            } catch (urlError) {
+                console.warn('URL de póster inválida:', poster_url);
+            }
+        }
+
+        // DATOS CORREGIDOS para la base de datos
+        const movieData = {
+            title: title.trim(),
+            release_year: yearNum,
+            genre: genre.trim(),
+            description: description ? description.trim() : null,
+            poster_image: final_poster_image,
+            type: type || 'movie',
+            is_active: true,
+            director: '',
+            duration: null,
+            trailer_url: '',
+            price: price ? parseFloat(price) : null
+        };
+
+        console.log('📝 DEBUG: Datos a guardar en BD:', movieData);
+
+        // VERIFICAR SI LA TABLA TIENE LAS COLUMNAS
+        try {
+            const db = require('../models/index.js');
+            const queryInterface = db.sequelize.getQueryInterface();
+            const tableInfo = await queryInterface.describeTable('movies');
+            console.log('🔍 DEBUG: Columnas disponibles en tabla movies:', Object.keys(tableInfo));
+            
+            // Verificar columnas críticas
+            const criticalColumns = ['genre', 'release_year', 'type'];
+            criticalColumns.forEach(col => {
+                if (!tableInfo[col]) {
+                    console.error(`❌ COLUMNA FALTANTE: ${col} no existe en la tabla movies`);
+                } else {
+                    console.log(`✅ Columna ${col}: EXISTE`);
+                }
+            });
+        } catch (error) {
+            console.error('❌ DEBUG: Error verificando estructura de tabla:', error);
+        }
+
+        // Crear la película/serie
+        console.log('🚀 DEBUG: Intentando crear película en BD...');
+        const created = await DatabaseService.createMovie(movieData);
+        console.log('✅ DEBUG: Película creada:', {
+            id: created.id,
+            title: created.title,
+            genre: created.genre,
+            release_year: created.release_year,
+            type: created.type
         });
-      }
 
-      let final_poster_image = '/images/default-poster.jpg';
-      
-      // CORREGIDO: Manejar tanto poster_image (archivo) como poster_url (URL)
-      if (req.file) {
-        // Validar tipo de archivo
-        const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-        if (!allowedMimes.includes(req.file.mimetype)) {
-          fs.unlinkSync(req.file.path);
-          return res.render('movie-form', {
+        // Manejo del producto
+        if (price && !isNaN(parseFloat(price)) && parseFloat(price) > 0) {
+            const productPrice = parseFloat(price);
+            await MovieController._handleProductAssociation(
+                created.id, 
+                created.title, 
+                description ? description.trim() : `Producto para ${created.title}`, 
+                productPrice, 
+                type || 'movie',
+                'create'
+            );
+        }
+
+        console.log('✅ Película/Serie creada exitosamente:', title);
+        res.redirect('/admin?success=Película/Serie creada correctamente');
+        
+    } catch (error) {
+        console.error('❌ ERROR DETALLADO creando película:', error);
+        console.error('❌ Stack trace:', error.stack);
+        
+        // Información específica del error
+        if (error.name === 'SequelizeDatabaseError') {
+            console.error('❌ ERROR DE BASE DE DATOS - Posible columna faltante');
+        }
+        if (error.name === 'SequelizeValidationError') {
+            console.error('❌ ERROR DE VALIDACIÓN:', error.errors);
+        }
+        
+        // Limpiar archivo subido en caso de error
+        if (req.file && fs.existsSync(req.file.path)) {
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (unlinkError) {
+                console.error('Error eliminando archivo temporal:', unlinkError);
+            }
+        }
+        
+        res.render('movie-form', {
             title: 'Nueva Película/Serie - CineCríticas',
             user: req.session.user,
             movie: null,
             product: null,
-            error: 'Formato de imagen no válido. Use JPEG, PNG, GIF o WebP',
+            error: `Error creando la película/serie: ${error.message || 'Error desconocido'}. Verifica que todos los campos estén configurados correctamente.`,
             success: null
-          });
-        }
-        // Archivo subido a través de poster_image
-        final_poster_image = '/uploads/movies/' + req.file.filename;
-        console.log('🖼️ Imagen subida:', final_poster_image);
-      } else if (poster_url?.trim()) {
-        // URL externa proporcionada
-        try {
-          new URL(poster_url.trim());
-          final_poster_image = poster_url.trim();
-          console.log('🌐 Usando URL externa:', final_poster_image);
-        } catch (urlError) {
-          console.warn('URL de póster inválida:', poster_url);
-        }
-      }
-
-      // CORREGIDO: Mapeo completo con todos los campos del modelo
-      const movieData = {
-        title: title.trim(),
-        release_year: yearNum, // Convertir a número
-        genre: genre.trim(), // ¡AGREGAR ESTE CAMPO!
-        description: description ? description.trim() : null,
-        poster_image: final_poster_image,
-        type: type || 'movie', // ¡AGREGAR ESTE CAMPO!
-        is_active: true,
-        // Campos que no existen en el formulario pero sí en el modelo
-        director: '',
-        duration: null,
-        trailer_url: '',
-        price: price ? parseFloat(price) : null // ¡CONVERTIR A NÚMERO!
-      };
-
-      // DEBUG: Mostrar datos que se van a guardar
-      console.log('📝 Datos CORREGIDOS a guardar en la base de datos:', movieData);
-
-      // Crear la película/serie
-      const created = await DatabaseService.createMovie(movieData);
-
-      // DEBUG: Verificar qué se creó
-      console.log('✅ Película creada en BD:', created);
-
-      // CORREGIDO: Manejo del producto con precio correcto
-      if (price && !isNaN(parseFloat(price)) && parseFloat(price) > 0) {
-        const productPrice = parseFloat(price);
-        await MovieController._handleProductAssociation(
-          created.id, 
-          created.title, 
-          description ? description.trim() : `Producto para ${created.title}`, 
-          productPrice, 
-          type || 'movie',
-          'create'
-        );
-      }
-
-      console.log('✅ Película/Serie creada exitosamente:', title);
-      res.redirect('/admin?success=Película/Serie creada correctamente');
-      
-    } catch (error) {
-      console.error('❌ Error creando película:', error);
-      
-      // Limpiar archivo subido en caso de error
-      if (req.file && fs.existsSync(req.file.path)) {
-        try {
-          fs.unlinkSync(req.file.path);
-        } catch (unlinkError) {
-          console.error('Error eliminando archivo temporal:', unlinkError);
-        }
-      }
-      
-      res.render('movie-form', {
-        title: 'Nueva Película/Serie - CineCríticas',
-        user: req.session.user,
-        movie: null,
-        product: null,
-        error: 'Error creando la película/serie: ' + (error.message || 'Error desconocido'),
-        success: null
-      });
+        });
     }
-  }
+}
 
   /**
    * Mostrar formulario para editar película - CORREGIDO

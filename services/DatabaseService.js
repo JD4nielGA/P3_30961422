@@ -1,4 +1,3 @@
-// services/DatabaseService.js - VERSIÓN COMPLETAMENTE CORREGIDA
 class DatabaseService {
   constructor() {
     this.initialized = false;
@@ -60,9 +59,222 @@ class DatabaseService {
     return true;
   }
 
+  // ================= MÉTODOS NUEVOS PARA HOME CONTROLLER =================
+
+  async getFeaturedReviewsForHome() {
+    try {
+      await this.ensureDatabase();
+      console.log('⭐ Obteniendo reseñas destacadas para home...');
+      
+      const reviews = await this.Review.findAll({
+        where: { 
+          is_featured: true,
+          is_active: true 
+        },
+        include: [
+          {
+            model: this.User,
+            as: 'user',
+            attributes: ['id', 'username', 'role', 'full_name']
+          }
+        ],
+        order: [['created_at', 'DESC']],
+        limit: 6
+      });
+      
+      console.log(`✅ ${reviews.length} reseñas destacadas encontradas`);
+      return reviews;
+    } catch (error) {
+      console.error('❌ Error en getFeaturedReviewsForHome:', error.message);
+      return [];
+    }
+  }
+
+  async getRecentReviewsForHome() {
+    try {
+      await this.ensureDatabase();
+      console.log('📝 Obteniendo reseñas recientes para home...');
+      
+      const reviews = await this.Review.findAll({
+        where: { is_active: true },
+        include: [
+          {
+            model: this.User,
+            as: 'user',
+            attributes: ['id', 'username', 'role', 'full_name']
+          }
+        ],
+        order: [['created_at', 'DESC']],
+        limit: 12
+      });
+      
+      console.log(`✅ ${reviews.length} reseñas recientes encontradas`);
+      return reviews;
+    } catch (error) {
+      console.error('❌ Error en getRecentReviewsForHome:', error.message);
+      return [];
+    }
+  }
+
+  async checkReviewAssociations() {
+    try {
+      await this.ensureDatabase();
+      console.log('🔍 Verificando asociaciones de Review...');
+      
+      const sampleReview = await this.Review.findOne({
+        include: [
+          {
+            model: this.User,
+            as: 'user',
+            attributes: ['id', 'username', 'role']
+          }
+        ]
+      });
+      
+      if (sampleReview) {
+        console.log('✅ Asociación Review -> User funciona correctamente');
+        console.log('📝 Review sample:', {
+          id: sampleReview.id,
+          title: sampleReview.title,
+          hasUser: !!sampleReview.user,
+          username: sampleReview.user?.username,
+          userRole: sampleReview.user?.role
+        });
+        return true;
+      } else {
+        console.log('ℹ️ No hay reseñas para verificar asociaciones');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error verificando asociaciones:', error.message);
+      return false;
+    }
+  }
+
+   async ensureMembershipColumns() {
+    try {
+      console.log('🔍 Verificando columnas de membresía con Sequelize...');
+      
+      // Intentar crear un usuario temporal con los campos de membresía
+      // Si falla, las columnas no existen
+      try {
+        const tempUser = await this.User.create({
+          username: 'temp_check_' + Date.now(),
+          email: 'temp@check.com',
+          password_hash: 'temp',
+          membership_type: 'free',
+          membership_expires: null,
+          membership_purchased: null
+        });
+        
+        // Eliminar el usuario temporal
+        await tempUser.destroy();
+        console.log('✅ Columnas de membresía verificadas');
+        return true;
+      } catch (error) {
+        console.log('⚠️ Columnas de membresía no disponibles:', error.message);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error verificando columnas:', error.message);
+      return false;
+    }
+  }
+
+  // ✅ NUEVO MÉTODO: Obtener conexión directa a la base de datos
+  async getDB() {
+    try {
+      if (!this.sequelize) {
+        throw new Error('Sequelize no está disponible');
+      }
+      
+      // Obtener la conexión directa de Sequelize
+      return this.sequelize.connectionManager.getConnection();
+    } catch (error) {
+      console.error('❌ Error obteniendo conexión a BD:', error.message);
+      throw error;
+    }
+  }
+
+  // ✅ NUEVO MÉTODO: Verificar estado de membresía
+  async checkMembershipStatus(userId) {
+    try {
+      await this.ensureDatabase();
+      const user = await this.User.findByPk(userId, {
+        attributes: ['id', 'membership_type', 'membership_expires', 'membership_purchased']
+      });
+
+      if (!user) throw new Error('Usuario no encontrado');
+
+      const userData = user.toJSON ? user.toJSON() : user;
+      const now = new Date();
+      
+      // Verificar si la membresía está activa
+      const isActive = userData.membership_type === 'vip' && 
+                      userData.membership_expires && 
+                      new Date(userData.membership_expires) > now;
+
+      // Calcular días restantes
+      let daysRemaining = 0;
+      if (isActive) {
+        daysRemaining = Math.ceil((new Date(userData.membership_expires) - now) / (1000 * 60 * 60 * 24));
+      }
+
+      return {
+        membership_type: userData.membership_type || 'free',
+        membership_expires: userData.membership_expires,
+        membership_purchased: userData.membership_purchased,
+        is_active: isActive,
+        days_remaining: daysRemaining
+      };
+    } catch (error) {
+      console.error('❌ Error en checkMembershipStatus:', error.message);
+      return {
+        membership_type: 'free',
+        membership_expires: null,
+        membership_purchased: null,
+        is_active: false,
+        days_remaining: 0
+      };
+    }
+  }
+
+  // ✅ NUEVO MÉTODO: Obtener usuario con información de membresía segura
+  async getUserWithMembership(userId) {
+    try {
+      await this.ensureDatabase();
+      
+      // Consulta segura que maneja columnas faltantes
+      const db = await this.getDB();
+      const userQuery = `
+        SELECT id, username, email, 
+               COALESCE(membership_type, 'free') as membership_type,
+               membership_expires, membership_purchased
+        FROM users WHERE id = ?
+      `;
+      
+      const user = await db.get(userQuery, [userId]);
+      
+      if (!user) throw new Error('Usuario no encontrado');
+      
+      return user;
+    } catch (error) {
+      console.error('❌ Error en getUserWithMembership:', error.message);
+      
+      // Fallback: usar valores por defecto
+      return {
+        id: userId,
+        username: 'usuario',
+        email: 'usuario@example.com',
+        membership_type: 'free',
+        membership_expires: null,
+        membership_purchased: null
+      };
+    }
+  }
+
   // ================= MÉTODOS DE RESEÑAS (CORREGIDOS) =================
   
-  // ✅ MÉTODO NUEVO: Obtener reseñas por usuario ID
   async getReviewsByUserId(userId) {
     try {
       await this.ensureDatabase();
@@ -249,7 +461,6 @@ class DatabaseService {
 
   async recordPurchase(purchaseData) {
     try {
-      // ✅ CORREGIDO: Usar createPurchase en lugar de duplicar lógica
       return await this.createPurchase(purchaseData);
     } catch (error) {
       console.error('❌ Error en recordPurchase:', error.message);
@@ -322,7 +533,6 @@ class DatabaseService {
       
       const purchase = await this.createPurchase(purchaseData);
       
-      // Agregar también al historial del usuario (backward compatibility)
       await this.addPurchaseToHistory(userId, {
         type: 'movie',
         movie_title: movieData.title,
@@ -338,17 +548,21 @@ class DatabaseService {
     }
   }
 
-  async processMembershipPurchase(userId, planType, paymentData) {
+  // ✅ ACTUALIZADO: Procesar compra de membresía con manejo de fechas
+  async processMembershipPurchase(userId, planType, paymentData, durationDays = 30) {
     try {
       await this.ensureDatabase();
       
+      // Validar que el plan sea VIP (único plan de pago disponible)
+      if (planType !== 'vip') {
+        throw new Error('Solo está disponible el plan VIP');
+      }
+
       const planPrices = {
-        'premium': 4.99,
         'vip': 9.99
       };
       
-      const amount = planPrices[planType] || 4.99;
-      const durationDays = 30;
+      const amount = planPrices[planType] || 9.99;
       
       const purchaseData = {
         user_id: userId,
@@ -357,15 +571,18 @@ class DatabaseService {
         amount: amount,
         status: 'completed',
         payment_method: paymentData.payment_method,
-        transaction_id: paymentData.transaction_id || `TXN_${Date.now()}`
+        transaction_id: paymentData.transaction_id || `MEM_VIP_${Date.now()}_${userId}`
       };
       
       const purchase = await this.createPurchase(purchaseData);
       
-      // Actualizar membresía del usuario
+      // ✅ ACTUALIZADO: Actualizar membresía con fecha de compra
       await this.updateMembership(userId, planType, durationDays);
       
-      return purchase;
+      return {
+        ...purchase.toJSON(),
+        membership_expires: new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000)
+      };
     } catch (error) {
       console.error('❌ Error en processMembershipPurchase:', error.message);
       throw error;
@@ -510,14 +727,12 @@ class DatabaseService {
       const allowedFields = ['full_name', 'email'];
       const updateData = {};
       
-      // ✅ CORREGIDO: Solo permitir campos específicos para seguridad
       allowedFields.forEach(field => {
         if (profileData[field] !== undefined) {
           updateData[field] = profileData[field];
         }
       });
       
-      // Manejar cambio de contraseña
       if (profileData.new_password && profileData.current_password) {
         const bcrypt = require('bcryptjs');
         const isValidPassword = await bcrypt.compare(profileData.current_password, user.password_hash);
@@ -563,30 +778,35 @@ class DatabaseService {
     }
   }
 
+  // ✅ ACTUALIZADO: Actualizar membresía con fecha de compra
   async updateMembership(userId, membershipType, durationDays = 30) {
     try {
       await this.ensureDatabase();
       const user = await this.User.findByPk(userId);
       if (!user) throw new Error('Usuario no encontrado');
       
-      const expiresDate = new Date();
-      expiresDate.setDate(expiresDate.getDate() + durationDays);
+      const now = new Date();
+      const expiresDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
       
       const updatedUser = await user.update({
         membership_type: membershipType,
-        membership_expires: expiresDate
+        membership_expires: expiresDate,
+        membership_purchased: now
       });
       
+      // Agregar al historial de compras
       await this.addPurchaseToHistory(userId, {
         type: 'membership',
         plan: membershipType,
-        price: membershipType === 'premium' ? 4.99 : 9.99,
-        duration_days: durationDays
+        price: membershipType === 'vip' ? 9.99 : 0,
+        duration_days: durationDays,
+        status: 'completed',
+        date: now.toISOString()
       });
       
       return updatedUser;
     } catch (error) {
-      console.error('Error en updateMembership:', error.message);
+      console.error('❌ Error en updateMembership:', error.message);
       throw error;
     }
   }

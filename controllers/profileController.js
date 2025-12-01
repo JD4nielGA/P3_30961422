@@ -197,41 +197,34 @@ class ProfileController {
     }
   }
 
-  // Membresías
+  // Membresías - ACTUALIZADO para solo Gratuito y VIP
   static async membership(req, res) {
     try {
-      const membershipPlans = [
-        {
-          id: 'premium',
-          name: 'Premium Mensual',
-          price: 4.99,
-          features: [
-            'Acceso a contenido exclusivo',
-            'Reseñas tempranas de películas',
-            'Sin anuncios publicitarios',
-            'Badge especial en tu perfil'
-          ],
-          duration: 30
-        },
-        {
-          id: 'vip',
-          name: 'VIP Mensual',
-          price: 9.99,
-          features: [
-            'Todos los beneficios Premium',
-            'Acceso a eventos exclusivos',
-            'Descuentos en productos',
-            'Soporte prioritario',
-            'Podés influir en contenido futuro'
-          ],
-          duration: 30
-        }
-      ];
+      const userId = req.session.user.id;
+      
+      // Obtener información actual del usuario
+      const user = await DatabaseService.User.findByPk(userId, {
+        attributes: ['id', 'username', 'email', 'membership_type', 'membership_expires', 'membership_purchased']
+      });
+
+      if (!user) {
+        return res.status(404).render('error', {
+          title: 'Usuario no encontrado',
+          message: 'El usuario no existe.',
+          user: req.session.user
+        });
+      }
+
+      const userData = user.toJSON ? user.toJSON() : user;
       
       res.render('user/membership', {
         title: 'Membresías - CineCríticas',
-        user: req.session.user,
-        plans: membershipPlans,
+        user: {
+          ...req.session.user,
+          membership_type: userData.membership_type || 'free',
+          membership_expires: userData.membership_expires,
+          membership_purchased: userData.membership_purchased
+        },
         currentPath: '/user/membership'
       });
     } catch (error) {
@@ -244,29 +237,66 @@ class ProfileController {
     }
   }
 
-  // ✅ CORREGIDO: Procesar compra de membresía (API)
+  // ✅ ACTUALIZADO: Procesar compra de membresía VIP (API)
   static async purchaseMembership(req, res) {
     try {
-      const { plan_id } = req.body;
-      // ✅ CORRECCIÓN: Usar req.session.user.id
+      const { plan_type, duration_days = 30 } = req.body;
       const userId = req.session.user.id;
       
-      console.log('🔍 Procesando compra de membresía:', { userId, plan_id });
+      console.log('🔍 Procesando compra de membresía:', { userId, plan_type, duration_days });
+
+      // Validar que el plan sea VIP (único plan de pago disponible)
+      if (plan_type !== 'vip') {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Solo está disponible el plan VIP' 
+        });
+      }
+
+      // Verificar si el usuario ya tiene una membresía activa
+      const user = await DatabaseService.User.findByPk(userId);
+      if (!user) {
+        return res.status(404).json({ 
+          success: false,
+          error: 'Usuario no encontrado' 
+        });
+      }
+
+      // Si ya tiene membresía VIP activa, no permitir otra compra
+      if (user.membership_type === 'vip' && user.membership_expires > new Date()) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Ya tienes una membresía VIP activa. Podrás renovar cuando expire.' 
+        });
+      }
 
       const paymentData = {
         payment_method: 'stripe',
-        transaction_id: `MEM_${Date.now()}_${userId}`
+        transaction_id: `MEM_VIP_${Date.now()}_${userId}`,
+        amount: 9.99, // Precio fijo para VIP
+        currency: 'EUR'
       };
 
-      const purchase = await DatabaseService.processMembershipPurchase(userId, plan_id, paymentData);
+      // Procesar la compra de membresía
+      const purchase = await DatabaseService.processMembershipPurchase(
+        userId, 
+        plan_type, 
+        paymentData, 
+        duration_days
+      );
+
+      // Actualizar la sesión del usuario con la nueva membresía
+      req.session.user.membership_type = 'vip';
+      req.session.user.membership_expires = purchase.membership_expires;
 
       res.json({
         success: true,
-        message: `¡Felicidades! Ahora tienes membresía ${plan_id}`,
+        message: `¡Felicidades! Ahora tienes membresía VIP por ${duration_days} días`,
         data: {
           purchase_id: purchase.id,
-          membership_type: plan_id,
-          expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          membership_type: 'vip',
+          expires: purchase.membership_expires,
+          price: 9.99
         }
       });
       
@@ -320,8 +350,51 @@ class ProfileController {
       });
     }
   }
-  // controllers/profileController.js - AÑADIR ESTE MÉTODO
-static async updateProfileTemporary(req, res) {
+
+  // ✅ NUEVO: Método para verificar estado de membresía
+  static async checkMembershipStatus(req, res) {
+    try {
+      const userId = req.session.user.id;
+      
+      const user = await DatabaseService.User.findByPk(userId, {
+        attributes: ['membership_type', 'membership_expires', 'membership_purchased']
+      });
+
+      if (!user) {
+        return res.status(404).json({ 
+          success: false,
+          error: 'Usuario no encontrado' 
+        });
+      }
+
+      const userData = user.toJSON ? user.toJSON() : user;
+      const now = new Date();
+      const isActive = userData.membership_type === 'vip' && 
+                      userData.membership_expires && 
+                      new Date(userData.membership_expires) > now;
+
+      res.json({
+        success: true,
+        data: {
+          membership_type: userData.membership_type || 'free',
+          membership_expires: userData.membership_expires,
+          membership_purchased: userData.membership_purchased,
+          is_active: isActive,
+          days_remaining: isActive ? 
+            Math.ceil((new Date(userData.membership_expires) - now) / (1000 * 60 * 60 * 24)) : 0
+        }
+      });
+    } catch (error) {
+      console.error('Error verificando membresía:', error);
+      res.status(500).json({ 
+        success: false,
+        error: 'Error al verificar el estado de la membresía' 
+      });
+    }
+  }
+
+  // ✅ ACTUALIZADO: Método temporal para testing
+  static async updateProfileTemporary(req, res) {
     try {
         // ✅ TEMPORAL: Permitir actualización sin autenticación para testing
         const { full_name, email, current_password, new_password, user_id } = req.body;
@@ -419,7 +492,7 @@ static async updateProfileTemporary(req, res) {
             error: error.message || 'Error al actualizar el perfil' 
         });
     }
-}
+  }
 }
 
 module.exports = ProfileController;

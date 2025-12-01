@@ -476,28 +476,6 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// Ruta principal
-app.get('/', async (req, res) => {
-  try {
-    const featuredReviews = await DatabaseService.getFeaturedReviews();
-    const allReviews = await DatabaseService.getAllReviews();
-    
-    res.render('index', {
-      title: 'Inicio - CineCríticas',
-      featuredReviews: featuredReviews || [],
-      allReviews: allReviews || [],
-      user: req.session.user
-    });
-  } catch (error) {
-    console.error('Error en página principal:', error);
-    res.render('index', {
-      title: 'Inicio - CineCríticas',
-      featuredReviews: [],
-      allReviews: [],
-      user: req.session.user
-    });
-  }
-});
 
 // ================= RUTAS DE COMPRA - CORREGIDAS =================
 
@@ -730,6 +708,7 @@ app.get('/register', AuthController.showRegister);
 app.post('/auth/login', AuthController.login);
 app.post('/auth/register', AuthController.register);
 
+
 // ================= RUTAS DE PERFIL DE USUARIO - CORREGIDAS =================
 app.get('/user/profile', requireAuth, async (req, res) => {
   try {
@@ -758,7 +737,8 @@ app.get('/user/profile', requireAuth, async (req, res) => {
     });
   }
 });
-
+const purchaseRoutes = require('./routes/purchase');
+app.use('/', purchaseRoutes);
 app.get('/user/purchase-history', requireAuth, ProfileController.purchaseHistory);
 app.get('/user/my-reviews', requireAuth, ProfileController.myReviews);
 app.get('/user/membership', requireAuth, ProfileController.membership);
@@ -1016,6 +996,13 @@ const safeRoute = (controller, methodName, fallbackMessage = 'Controlador no dis
     };
   }
 };
+const HomeController = require('./controllers/homeController');
+
+// Rutas principales
+app.get('/', HomeController.showHome);
+app.get('/about', HomeController.showAbout);
+app.get('/contact', HomeController.showContact);
+app.get('/test-associations', HomeController.testAssociations);
 
 // Admin - películas (RUTAS SEGURAS)
 app.get('/admin/movies/new', requireAdmin, safeRoute(MovieController, 'showNewMovieForm'));

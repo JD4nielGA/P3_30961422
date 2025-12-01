@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comprar <%= movie.title %> - CineCríticas</title>
+    <title><%= title %></title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
@@ -214,12 +214,15 @@
                 <i class="fas fa-shopping-cart"></i> Confirmar Compra
             </h1>
 
+            <!-- Mensaje de error si existe -->
+            <% if (typeof error !== 'undefined' && error) { %>
+                <div class="error-message">
+                    <i class="fas fa-exclamation-circle"></i> <%= error %>
+                </div>
+            <% } %>
+
             <div class="movie-header">
-                <img src="<%= movie.poster_image ? 
-                          (movie.poster_image.startsWith('/uploads/') ? 
-                           movie.poster_image : 
-                           '/uploads/movies/' + movie.poster_image) : 
-                          '/images/default-poster.jpg' %>" 
+                <img src="<%= movie.poster_image ? movie.poster_image : '/images/default-poster.jpg' %>" 
                      alt="<%= movie.title %>" 
                      class="movie-poster"
                      onerror="this.src='/images/default-poster.jpg'">
@@ -238,9 +241,13 @@
             </div>
 
             <form id="purchaseForm" action="/purchase/process-movie" method="POST">
-                <input type="hidden" name="movie_id" value="<%= movie.id || '' %>">
+                <input type="hidden" name="movie_id" value="<%= movie.id %>">
                 <input type="hidden" name="movie_title" value="<%= movie.title %>">
-                <input type="hidden" name="amount" value="<%= movie.price || 3.99 %>">
+                <input type="hidden" name="amount" value="<%= movie.price ? parseFloat(movie.price).toFixed(2) : '3.99' %>">
+                
+                <% if (typeof csrfToken !== 'undefined' && csrfToken) { %>
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <% } %>
 
                 <div class="payment-methods">
                     <h3 style="margin-bottom: 15px; color: #2d3748;">
@@ -326,7 +333,7 @@
             </div>
 
             <div style="text-align: center; margin-top: 20px;">
-                <a href="<%= movie.id ? '/movie/' + movie.id : '/' %>" 
+                <a href="/movie/<%= movie.id %>" 
                    style="color: #4299e1; text-decoration: none; font-weight: 500;">
                     <i class="fas fa-arrow-left"></i> Volver a la película
                 </a>
