@@ -1326,7 +1326,6 @@ const startServer = async () => {
     console.log('1. 🔄 Inicializando DatabaseService...');
     const dbInitialized = await DatabaseService.initialize();
     console.log('2. 🔄 Verificando y agregando columnas de membresía...');
-    await autoMigrateMembershipColumns();
     
     if (!dbInitialized) {
       throw new Error('No se pudo inicializar DatabaseService');
