@@ -702,6 +702,75 @@ app.get('/purchase/confirmation', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/api/system/reset-database', async (req, res) => {
+  try {
+    console.log('🔄 INICIANDO RESET COMPLETO DE BASE DE DATOS EN RENDER...');
+    
+    // 1. Sincronizar fuerza todos los modelos
+    await DatabaseService.sequelize.sync({ force: true });
+    console.log('✅ 1. Tablas recreadas');
+    
+    // 2. Crear usuarios de prueba
+    const { adminCreated, userCreated } = await DatabaseService.ensureTestUsers();
+    console.log('✅ 2. Usuarios de prueba creados:', { adminCreated, userCreated });
+    
+    // 3. Seed de películas iniciales
+    await DatabaseService.seedInitialMovies();
+    console.log('✅ 3. Películas iniciales creadas');
+    
+    res.json({ 
+      success: true, 
+      message: '✅ BASE DE DATOS RESETEADA COMPLETAMENTE EN RENDER',
+      details: {
+        users_created: { admin: adminCreated, user: userCreated },
+        tables_recreated: true
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ ERROR EN RESET:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
+app.get('/api/system/database-status', async (req, res) => {
+  try {
+    const users = await DatabaseService.User.findAll();
+    const movies = await DatabaseService.Movie.findAll();
+    
+    // Verificar columnas de membresía
+    const sampleUser = users[0];
+    const hasMembershipColumns = sampleUser && 
+                                'membership_type' in sampleUser && 
+                                'membership_purchased' in sampleUser;
+    
+    res.json({
+      success: true,
+      database_status: 'connected',
+      tables: {
+        users: users.length,
+        movies: movies.length,
+        has_membership_columns: hasMembershipColumns
+      },
+      users_sample: users.slice(0, 2).map(u => ({
+        id: u.id,
+        username: u.username,
+        has_membership_type: 'membership_type' in u,
+        has_membership_purchased: 'membership_purchased' in u
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
 // ================= RUTAS DE AUTENTICACIÓN WEB =================
 app.get('/login', AuthController.showLogin);
 app.get('/register', AuthController.showRegister);
@@ -969,6 +1038,7 @@ app.put('/api/user/profile/direct', requireAuth, async (req, res) => {
   }
 });
 
+
 // ================= RUTAS DE RESEÑAS =================
 app.get('/review/:id', ReviewController.showReview);
 app.get('/reviews/new', requireAuth, ReviewController.showNewUserReviewForm);
@@ -1227,8 +1297,6 @@ app.use((error, req, res, next) => {
     user: req.session.user
   });
 });
-
-
 app.get('/api/system/reset-database', async (req, res) => {
   try {
     console.log('🔄 Reseteando base de datos en Render...');
@@ -1250,7 +1318,6 @@ app.get('/api/system/reset-database', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
 // ================= INICIO DEL SERVIDOR =================
 const startServer = async () => {
   try {
