@@ -37,6 +37,8 @@
             gap: 25px;
             margin-bottom: 30px;
             align-items: flex-start;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
         }
         
         @media (max-width: 768px) {
@@ -52,6 +54,8 @@
             border-radius: 10px;
             object-fit: cover;
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            border: 2px solid #4299e1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
         
         .movie-info {
@@ -65,13 +69,11 @@
             margin-bottom: 10px;
         }
         
-        .movie-details {
+        .movie-year {
+            font-size: 1.2em;
             color: #718096;
-            margin-bottom: 15px;
-        }
-        
-        .movie-details div {
-            margin-bottom: 5px;
+            margin-bottom: 20px;
+            padding: 5px 0;
         }
         
         .price-tag {
@@ -185,6 +187,17 @@
             border: 1px solid #feb2b2;
         }
         
+        .debug-info {
+            background: #e6fffa;
+            border: 2px dashed #38b2ac;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            color: #234e52;
+        }
+        
         .grid-2 {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -203,13 +216,33 @@
             .movie-poster {
                 width: 150px;
                 height: 225px;
+                margin: 0 auto;
             }
+        }
+        
+        .placeholder-text {
+            color: #718096;
+            font-style: italic;
+            text-align: center;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 8px;
+            margin: 10px 0;
         }
     </style>
 </head>
 <body>
     <div class="purchase-container">
         <div class="purchase-card">
+            <!-- DEBUG INFO - Puedes comentar o eliminar esta sección después -->
+            <div class="debug-info">
+                <strong>DEBUG INFO:</strong><br>
+                Título: <span id="debugTitle"><%= movie.title || 'No disponible' %></span><br>
+                Imagen URL: <span id="debugImage"><%= movie.poster_image || 'No disponible' %></span><br>
+                Precio: <span id="debugPrice">€<%= movie.price ? parseFloat(movie.price).toFixed(2) : '3.99' %></span><br>
+                Año: <span id="debugYear"><%= movie.release_year || 'No disponible' %></span>
+            </div>
+
             <h1 style="text-align: center; color: #2d3748; margin-bottom: 30px;">
                 <i class="fas fa-shopping-cart"></i> Confirmar Compra
             </h1>
@@ -222,27 +255,63 @@
             <% } %>
 
             <div class="movie-header">
-                <img src="<%= movie.poster_image ? movie.poster_image : '/images/default-poster.jpg' %>" 
-                     alt="<%= movie.title %>" 
+                <!-- IMAGEN CON MANEJO ROBUSTO DE ERRORES -->
+                <% 
+                    // Determinar URL final de imagen
+                    let imageUrl = '/images/default-poster.jpg';
+                    
+                    // Opción 1: Usar poster_image si existe y es válido
+                    if (movie.poster_image && 
+                        movie.poster_image !== 'undefined' && 
+                        movie.poster_image !== 'null' &&
+                        movie.poster_image.trim() !== '' &&
+                        movie.poster_image !== 'undefined') {
+                        
+                        imageUrl = movie.poster_image;
+                        
+                        // Asegurar que la ruta sea absoluta si es local
+                        if (imageUrl.startsWith('uploads/')) {
+                            imageUrl = '/' + imageUrl;
+                        } else if (!imageUrl.startsWith('/') && !imageUrl.startsWith('http')) {
+                            imageUrl = '/' + imageUrl;
+                        }
+                    }
+                    
+                    // Si llegamos aquí y no tenemos una URL válida, usar placeholder
+                    if (!imageUrl || imageUrl === '/undefined' || imageUrl === '/null') {
+                        imageUrl = '/images/default-poster.jpg';
+                    }
+                %>
+                
+                <img id="moviePoster" 
+                     src="<%= imageUrl %>" 
+                     alt="<%= movie.title || 'Película' %>" 
                      class="movie-poster"
-                     onerror="this.src='/images/default-poster.jpg'">
+                     onerror="handleImageError(this)"
+                     data-default="/images/default-poster.jpg">
+                
                 <div class="movie-info">
-                    <div class="movie-title"><%= movie.title %></div>
-                    <div class="movie-details">
-                        <div><strong>Año:</strong> <%= movie.release_year || 'N/A' %></div>
-                        <div><strong>Género:</strong> <%= movie.genre || 'No especificado' %></div>
-                        <div><strong>Duración:</strong> <%= movie.duration || 'N/A' %> min</div>
-                        <div><strong>Director:</strong> <%= movie.director || 'No especificado' %></div>
+                    <div class="movie-title"><%= movie.title || 'Película sin título' %></div>
+                    <div class="movie-year">
+                        <i class="far fa-calendar-alt"></i> 
+                        <%= movie.release_year || 'Año no disponible' %>
                     </div>
                     <div class="price-tag">
                         €<%= movie.price ? parseFloat(movie.price).toFixed(2) : '3.99' %>
                     </div>
+                    
+                    <!-- Información adicional si está disponible -->
+                    <% if (movie.genre) { %>
+                        <div style="margin-top: 10px; color: #718096;">
+                            <i class="fas fa-tag"></i> <%= movie.genre %>
+                        </div>
+                    <% } %>
                 </div>
             </div>
 
             <form id="purchaseForm" action="/purchase/process-movie" method="POST">
-                <input type="hidden" name="movie_id" value="<%= movie.id %>">
-                <input type="hidden" name="movie_title" value="<%= movie.title %>">
+                <input type="hidden" name="movie_id" value="<%= movie.id || '' %>">
+                <input type="hidden" name="movie_title" value="<%= movie.title || '' %>">
                 <input type="hidden" name="amount" value="<%= movie.price ? parseFloat(movie.price).toFixed(2) : '3.99' %>">
                 
                 <% if (typeof csrfToken !== 'undefined' && csrfToken) { %>
@@ -342,6 +411,49 @@
     </div>
 
     <script>
+        // ============ DEBUG EN CONSOLA ============
+        console.log('=== PÁGINA DE COMPRA - DEBUG ===');
+        console.log('Datos de película recibidos:', <%= JSON.stringify(movie) %>);
+        console.log('URL de imagen final:', '<%= imageUrl %>');
+        console.log('Título:', '<%= movie.title %>');
+        console.log('Precio:', '<%= movie.price %>');
+        console.log('================================');
+        
+        // ============ MANEJO DE IMÁGENES ============
+        function handleImageError(img) {
+            console.log('❌ Error cargando imagen:', img.src);
+            console.log('🔄 Cambiando a imagen por defecto');
+            
+            const defaultImage = img.getAttribute('data-default') || '/images/default-poster.jpg';
+            img.src = defaultImage;
+            img.onerror = null; // Prevenir bucles infinitos
+            
+            // Si aún falla, usar placeholder de internet
+            img.onerror = function() {
+                console.log('❌ Fallback también falló, usando placeholder online');
+                this.src = 'https://via.placeholder.com/200x300/667eea/ffffff?text=' + 
+                          encodeURIComponent('<%= movie.title || "Película" %>');
+            };
+        }
+        
+        // Verificar carga de imagen
+        document.addEventListener('DOMContentLoaded', function() {
+            const img = document.getElementById('moviePoster');
+            
+            img.onload = function() {
+                console.log('✅ Imagen cargada exitosamente:', this.src);
+            };
+            
+            // Verificar si la imagen se carga después de 1 segundo
+            setTimeout(function() {
+                if (!img.complete || img.naturalHeight === 0) {
+                    console.log('⏱️ Imagen no cargada después de 1 segundo, forzando fallback');
+                    handleImageError(img);
+                }
+            }, 1000);
+        });
+        
+        // ============ PAGO ============
         let selectedPaymentMethod = null;
 
         function selectPayment(element, method) {
@@ -437,6 +549,9 @@
             // Si pasa todas las validaciones
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando pago...';
             submitBtn.disabled = true;
+            
+            // Continuar con el envío
+            return true;
         });
 
         function showError(message) {
@@ -466,6 +581,13 @@
                     e.preventDefault();
                 }
             });
+        });
+        
+        // ============ INICIALIZACIÓN ============
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Página de compra cargada');
+            console.log('ID de película:', '<%= movie.id %>');
+            console.log('Usuario:', '<%= user ? user.username : "No logueado" %>');
         });
     </script>
 </body>

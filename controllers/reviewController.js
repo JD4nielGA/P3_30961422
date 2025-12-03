@@ -603,55 +603,104 @@ static async showReview(req, res) {
       }
     }
 
-    // Lógica de imágenes
+    // Lógica de imágenes MEJORADA
     console.log('\n🔍 DEBUG DE IMÁGENES:');
-    console.log('📸 Reseña - poster_image:', reviewData.poster_image);
     console.log('📸 Reseña - review_image:', reviewData.review_image);
+    console.log('📸 Reseña - poster_image:', reviewData.poster_image);
     console.log('🎬 Película - poster_image:', movie?.poster_image);
     
-    let imageUrl = '/images/default-poster.jpg';
+    // IMPORTANTE: Preparar todos los campos de imagen para el template
+    const templateData = {
+      // Datos básicos de la reseña
+      id: reviewData.id,
+      movie_id: reviewData.movie_id,
+      movie_title: reviewData.movie_title || 'Película sin título',
+      title: reviewData.title || 'Reseña sin título',
+      content: reviewData.content || '',
+      rating: reviewData.rating || 0,
+      user_id: reviewData.user_id,
+      username: reviewData.username || 'Usuario desconocido',
+      user_role: reviewData.user_role || 'user',
+      is_featured: reviewData.is_featured || false,
+      created_at: reviewData.created_at || new Date(),
+      updated_at: reviewData.updated_at || new Date(),
+      
+      // TODOS los campos de imagen posibles
+      review_image: reviewData.review_image || '',
+      poster_image: reviewData.poster_image || '',
+      poster_url: movie?.poster_image || '', // Usar poster de la película
+      movie_poster: movie?.poster_image || '', // Alias para el template
+      
+      // Información de la película si existe
+      release_year: movie?.release_year || movie?.year || 'N/A',
+      genre: movie?.genre || 'No especificado',
+      price: movie?.price || 3.99,
+      
+      // Datos de debug
+      _debug: {
+        has_review_image: !!reviewData.review_image,
+        has_movie: !!movie,
+        movie_poster: movie?.poster_image,
+        product_price: product?.price
+      }
+    };
+
+    // Determinar URL de imagen final para el template
+    let finalImageUrl = '/images/default-poster.jpg';
     let imageSource = 'default';
     
-    if (reviewData.review_image && reviewData.review_image !== '') {
-      if (reviewData.review_image.startsWith('/uploads/')) {
-        imageUrl = reviewData.review_image;
-      } else {
-        imageUrl = `/uploads/reviews/${reviewData.review_image}`;
-      }
+    // Orden de prioridad para las imágenes
+    if (templateData.review_image && templateData.review_image.trim() !== '') {
+      finalImageUrl = templateData.review_image;
       imageSource = 'review_image';
-      console.log('✅ Usando imagen de reseña:', imageUrl);
-    } else if (movie?.poster_image) {
-      if (movie.poster_image.startsWith('/uploads/')) {
-        imageUrl = movie.poster_image;
-      } else {
-        imageUrl = `/uploads/movies/${movie.poster_image}`;
-      }
+    } else if (templateData.poster_url && templateData.poster_url.trim() !== '') {
+      finalImageUrl = templateData.poster_url;
+      imageSource = 'poster_url';
+    } else if (templateData.movie_poster && templateData.movie_poster.trim() !== '') {
+      finalImageUrl = templateData.movie_poster;
       imageSource = 'movie_poster';
-      console.log('✅ Usando poster de película:', imageUrl);
-    } else if (reviewData.poster_image && reviewData.poster_image !== '') {
-      if (reviewData.poster_image.startsWith('/uploads/')) {
-        imageUrl = reviewData.poster_image;
-      } else {
-        imageUrl = `/uploads/reviews/${reviewData.poster_image}`;
-      }
-      imageSource = 'review_poster';
-      console.log('✅ Usando poster de reseña:', imageUrl);
-    } else {
-      console.log('⚠️ Usando imagen por defecto');
     }
-
-    console.log('🖼️ URL final de imagen:', imageUrl);
+    
+    // Asegurar que la URL sea absoluta
+    if (finalImageUrl && !finalImageUrl.startsWith('/') && !finalImageUrl.startsWith('http')) {
+      finalImageUrl = '/' + finalImageUrl;
+    }
+    
+    // Verificar si existe la imagen específica que sabemos que debería estar
+    const testImagePath = '/uploads/movies/movie-1764711534623-30651647.jpeg';
+    console.log('🖼️ URL final de imagen:', finalImageUrl);
     console.log('📁 Fuente de imagen:', imageSource);
+    console.log('🧪 Imagen de test conocida:', testImagePath);
+    
+    // Para debug, agregar información adicional
+    const debugInfo = {
+      template_fields: {
+        review_image: templateData.review_image,
+        poster_url: templateData.poster_url,
+        movie_poster: templateData.movie_poster,
+        final_image_url: finalImageUrl
+      },
+      movie_info: {
+        has_movie: !!movie,
+        movie_title: movie?.title,
+        movie_poster: movie?.poster_image
+      },
+      image_test: testImagePath
+    };
+    
+    console.log('📊 Datos de debug para template:', debugInfo);
 
     // Pasar todo a la vista
     res.render('review-template', {
-      title: `${reviewData.movie_title} - CineCríticas`,
-      review: reviewData,
+      title: `${templateData.movie_title} - CineCríticas`,
+      review: templateData,
       movie: movie,
       product: product,
-      imageUrl: imageUrl,
+      imageUrl: finalImageUrl,
       imageSource: imageSource,
-      user: req.session.user
+      user: req.session.user,
+      _debug: debugInfo, // Solo para desarrollo, quitar en producción
+      testImage: testImagePath // Para referencia en el template
     });
   } catch (error) {
     console.error('Error cargando reseña:', error);

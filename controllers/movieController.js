@@ -94,7 +94,7 @@ static async createMovie(req, res) {
                 console.warn('URL de póster inválida:', poster_url);
             }
         }
-
+        
         // DATOS CORREGIDOS para la base de datos
         const movieData = {
             title: title.trim(),

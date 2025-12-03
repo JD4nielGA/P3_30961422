@@ -75,8 +75,14 @@
             color: white;
         }
 
+        .btn-danger {
+            background: #e53e3e;
+            color: white;
+        }
+
         .btn:hover {
             transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
         /* Movie Hero Section */
@@ -94,9 +100,11 @@
 
         .movie-poster {
             width: 100%;
+            height: 450px;
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
             transition: transform 0.3s ease;
+            object-fit: cover;
         }
 
         .movie-poster:hover {
@@ -268,6 +276,55 @@
             line-height: 1.6;
         }
 
+        /* Modal de compra */
+        .purchase-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .modal-content {
+            background: #fff;
+            color: #2d3748;
+            border-radius: 12px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: #2d3748;
+        }
+
+        .modal-price {
+            color: #4a5568;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .error-message {
+            background: #fff6f6;
+            border: 1px solid #fed7d7;
+            padding: 15px;
+            border-radius: 8px;
+            color: #742a2a;
+            margin-bottom: 20px;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .movie-hero {
@@ -297,6 +354,15 @@
                 flex-direction: column;
                 gap: 15px;
             }
+
+            .modal-content {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .modal-actions {
+                flex-direction: column;
+            }
         }
 
         /* Featured Badge */
@@ -313,39 +379,28 @@
             margin-left: 10px;
         }
 
-        /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.5);
+        .warning-message {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .image-fallback {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 9999;
-        }
-
-        .modal-content {
-            background: #fff;
-            color: #2d3748;
-            border-radius: 12px;
-            padding: 24px;
-            width: 90%;
-            max-width: 480px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-        }
-
-        .author-info {
-            background: #f7fafc;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
-            border-left: 4px solid #4299e1;
-        }
-
-        .author-name {
+            color: white;
             font-weight: bold;
-            color: #2d3748;
-            margin-bottom: 5px;
+            text-align: center;
+            padding: 20px;
         }
     </style>
 </head>
@@ -372,20 +427,34 @@
         <!-- Movie Hero Section -->
         <section class="movie-hero">
             <div class="movie-poster-container">
-                <img src="<%= imageUrl || '/images/default-poster.jpg' %>" 
-                     alt="<%= review.movie_title || 'Película' %>" 
+                <% 
+                    // Determinar URL de imagen
+                    let movieImage = '/images/default-poster.jpg';
+                    
+                    if (review.review_image && review.review_image.trim() !== '') {
+                        movieImage = review.review_image.trim();
+                    } else if (review.poster_url && review.poster_url.trim() !== '') {
+                        movieImage = review.poster_url.trim();
+                    } else if (review.movie_poster && review.movie_poster.trim() !== '') {
+                        movieImage = review.movie_poster.trim();
+                    }
+                    
+                    // Asegurar que sea ruta absoluta
+                    if (movieImage && !movieImage.startsWith('/') && !movieImage.startsWith('http')) {
+                        movieImage = '/' + movieImage;
+                    }
+                %>
+                
+                <img src="<%= movieImage %>" 
+                     alt="<%= review.movie_title %>" 
                      class="movie-poster"
+                     id="reviewPosterImage"
                      onerror="this.src='/images/default-poster.jpg'">
-                <% if (!imageUrl || imageUrl === '/images/default-poster.jpg') { %>
-                    <div style="text-align: center; color: #718096; font-size: 0.9rem; margin-top: 10px;">
-                        <i class="fas fa-image"></i> Imagen no disponible
-                    </div>
-                <% } %>
             </div>
             
             <div class="movie-info">
                 <h1 class="movie-title">
-                    <%= review.movie_title || 'Título no disponible' %>
+                    <%= review.movie_title %>
                     <% if (review.is_featured) { %>
                         <span class="featured-badge">
                             <i class="fas fa-star"></i>DESTACADA
@@ -398,24 +467,46 @@
                         <i class="fas fa-star"></i>
                         <span><%= review.rating %>/5</span>
                     </div>
-                </div>
-
-                <!-- Información del autor simplificada -->
-                <div class="author-info">
-                    <div class="author-name">
-                        <i class="fas fa-user-edit"></i>
-                        Reseña creada por: <%= review.username || 'Usuario desconocido' %>
+                    <div class="review-count">
+                        <i class="fas fa-comment"></i>
+                        <% if (typeof totalReviews !== 'undefined') { %>
+                            <%= totalReviews %> reseñas
+                        <% } else { %>
+                            <a href="/movie/<%= encodeURIComponent(review.movie_title) %>" style="color: #718096;">
+                                Ver todas las reseñas
+                            </a>
+                        <% } %>
                     </div>
                 </div>
+
+                <% if (typeof totalReviews !== 'undefined' && typeof avgRating !== 'undefined') { %>
+                <div class="movie-stats">
+                    <div class="stat">
+                        <div class="stat-number"><%= avgRating %></div>
+                        <div class="stat-label">Rating Promedio</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number"><%= totalReviews %></div>
+                        <div class="stat-label">Total Reseñas</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number"><%= featuredCount || 0 %></div>
+                        <div class="stat-label">Destacadas</div>
+                    </div>
+                </div>
+                <% } %>
 
                 <div style="margin-top: 20px;">
                     <a href="/reviews/new?movie=<%= encodeURIComponent(review.movie_title) %>" 
                        class="btn btn-primary">
                         <i class="fas fa-edit"></i>Escribir Reseña
                     </a>
-                    <!-- Comprar: botón para iniciar flujo de compra -->
+                    <a href="/movie/<%= encodeURIComponent(review.movie_title) %>" 
+                       class="btn btn-secondary" style="margin-left: 10px;">
+                        <i class="fas fa-list"></i>Ver Todas las Reseñas
+                    </a>
                     <% const _price = (typeof product !== 'undefined' && product && product.price) ? product.price : (review.price || 3.99); %>
-                    <button class="btn btn-primary" id="buyButton" style="margin-left: 10px; background: #e53e3e;">
+                    <button class="btn btn-danger" id="buyButton" style="margin-left: 10px;">
                         <i class="fas fa-shopping-cart"></i> Comprar - <%= Number(_price).toFixed(2) %> €
                     </button>
                 </div>
@@ -426,7 +517,7 @@
         <section class="review-content">
             <div class="review-header">
                 <div>
-                    <h2 class="review-title"><%= review.title || 'Sin título' %></h2>
+                    <h2 class="review-title"><%= review.title %></h2>
                     <div class="rating" style="background: transparent; color: #ffc107; padding: 0; margin-top: 5px;">
                         <% for (let i = 0; i < 5; i++) { %>
                             <% if (i < review.rating) { %>
@@ -441,27 +532,44 @@
                 <div class="review-meta">
                     <div class="review-author">
                         <i class="fas fa-user"></i>
-                        <%= review.username || 'Usuario desconocido' %>
+                        <%= review.username %>
                     </div>
+                    <div class="review-date">
+                        <i class="fas fa-calendar"></i>
+                        <%= new Date(review.created_at).toLocaleDateString('es-ES', { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                        }) %>
+                    </div>
+                    <% if (review.updated_at && review.updated_at !== review.created_at) { %>
+                    <div class="review-date">
+                        <i class="fas fa-edit"></i>
+                        Editado: <%= new Date(review.updated_at).toLocaleDateString('es-ES', { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                        }) %>
+                    </div>
+                    <% } %>
                 </div>
             </div>
 
             <div class="review-text">
-                <% if (review.content && review.content.trim()) { %>
-                    <% const paragraphs = review.content.split('\n').filter(p => p.trim()); %>
-                    <% paragraphs.forEach(paragraph => { %>
-                        <p><%= paragraph %></p>
-                    <% }); %>
-                <% } else { %>
-                    <p style="color: #718096; font-style: italic;">Esta reseña no tiene contenido.</p>
-                <% } %>
+                <% const paragraphs = review.content.split('\n').filter(p => p.trim()); %>
+                <% paragraphs.forEach(paragraph => { %>
+                    <p><%= paragraph %></p>
+                <% }); %>
             </div>
 
-            <!-- Acciones para el autor o admin -->
             <div style="display: flex; gap: 10px; justify-content: center; margin-top: 30px; flex-wrap: wrap;">
                 <a href="/reviews/new?movie=<%= encodeURIComponent(review.movie_title) %>" 
                    class="btn btn-primary">
                     <i class="fas fa-edit"></i>Escribir Tu Reseña
+                </a>
+                <a href="/movie/<%= encodeURIComponent(review.movie_title) %>" 
+                   class="btn btn-secondary">
+                    <i class="fas fa-list"></i>Ver Todas las Reseñas
                 </a>
                 <% if (user && (user.id === review.user_id || user.role === 'admin')) { %>
                     <a href="/admin/reviews/<%= review.id %>/edit" 
@@ -471,41 +579,104 @@
                 <% } %>
             </div>
         </section>
-    </div>
 
-    <!-- Modal de compra corregido -->
-    <div id="purchaseModal" class="modal">
-        <div class="modal-content">
-            <h3 style="margin-bottom:8px;">Comprar: <%= review.movie_title %></h3>
-            <p style="color:#4a5568; margin-bottom:16px;">Precio: <strong><%= Number(_price).toFixed(2) %> €</strong></p>
+        <!-- Other Reviews Section -->
+        <% if (typeof otherReviews !== 'undefined' && otherReviews && otherReviews.length > 0) { %>
+        <section class="other-reviews">
+            <h3 class="section-title">
+                <i class="fas fa-comments"></i>Otras Reseñas de "<%= review.movie_title %>"
+                <span style="font-size: 1rem; color: #718096; margin-left: 10px;">
+                    (<%= otherReviews.length %> más)
+                </span>
+            </h3>
             
-            <% if (!user) { %>
-                <div style="background:#fff6f6; border:1px solid #fed7d7; padding:12px; border-radius:8px; color:#742a2a; margin-bottom:16px;">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    Debes <a href="/auth/login" style="color:#e53e3e; font-weight:bold;">iniciar sesión</a> para completar la compra.
-                </div>
-                <div style="display:flex; gap:8px; justify-content:flex-end;">
-                    <button class="btn btn-secondary" id="closeModalBtn">Cerrar</button>
-                    <a href="/auth/login" class="btn btn-primary" style="background:#e53e3e;">
-                        <i class="fas fa-sign-in-alt"></i>Iniciar Sesión
+            <div class="reviews-list">
+                <% otherReviews.forEach(otherReview => { %>
+                    <div class="review-item">
+                        <div class="review-item-header">
+                            <div class="review-item-author">
+                                <i class="fas fa-user"></i>
+                                <%= otherReview.username %>
+                                <% if (otherReview.is_featured) { %>
+                                    <span class="featured-badge" style="margin-left: 8px; font-size: 0.7rem;">
+                                        <i class="fas fa-star"></i>DESTACADA
+                                    </span>
+                                <% } %>
+                            </div>
+                            <div class="review-item-rating">
+                                <%= '★'.repeat(otherReview.rating) %><%= '☆'.repeat(5 - otherReview.rating) %>
+                                (<%= otherReview.rating %>/5)
+                            </div>
+                        </div>
+                        <div class="review-item-content">
+                            <%= otherReview.content.length > 150 ? 
+                                otherReview.content.substring(0, 150) + '...' : 
+                                otherReview.content %>
+                        </div>
+                        <% if (otherReview.content.length > 150) { %>
+                            <a href="/review/<%= otherReview.id %>" style="color: #4299e1; font-size: 0.9rem; display: inline-block; margin-top: 10px;">
+                                Leer reseña completa...
+                            </a>
+                        <% } %>
+                        <div style="margin-top: 10px; font-size: 0.8rem; color: #718096;">
+                            <i class="fas fa-calendar"></i>
+                            <%= new Date(otherReview.created_at).toLocaleDateString('es-ES') %>
+                        </div>
+                    </div>
+                <% }); %>
+            </div>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="/movie/<%= encodeURIComponent(review.movie_title) %>" 
+                   class="btn btn-primary">
+                    <i class="fas fa-list"></i>Ver Todas las <%= otherReviews.length + 1 %> Reseñas
+                </a>
+            </div>
+        </section>
+        <% } else { %>
+            <section class="other-reviews">
+                <h3 class="section-title">
+                    <i class="fas fa-comments"></i>Más Reseñas de "<%= review.movie_title %>"
+                </h3>
+                <div style="text-align: center; padding: 40px; color: #718096;">
+                    <i class="fas fa-comment-slash fa-2x mb-3"></i>
+                    <p>Esta es la única reseña de esta película por ahora.</p>
+                    <a href="/reviews/new?movie=<%= encodeURIComponent(review.movie_title) %>" 
+                       class="btn btn-primary">
+                        <i class="fas fa-edit"></i>Sé el primero en escribir una reseña
                     </a>
                 </div>
+            </section>
+        <% } %>
+    </div>
+
+    <!-- Modal de compra -->
+    <div id="purchaseModal" class="purchase-modal">
+        <div class="modal-content">
+            <h3 class="modal-title">Comprar: <%= review.movie_title %></h3>
+            <p class="modal-price">Precio: <strong><%= Number(_price).toFixed(2) %> €</strong></p>
+            
+            <% if (!user) { %>
+                <div class="error-message">
+                    <i class="fas fa-exclamation-circle"></i>
+                    Debes <a href="/auth/login" style="color: #742a2a; font-weight: bold;">iniciar sesión</a> para completar la compra.
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" id="closeModalBtn">Cerrar</button>
+                </div>
             <% } else { %>
-                <form id="purchaseForm" method="POST" action="/purchase/create" style="display:flex; flex-direction:column; gap:12px;">
-                    <input type="hidden" name="movie_id" value="<%= review.movie_id %>">
+                <form id="purchaseForm" method="POST" action="/purchase/process-movie">
+                    <% if (typeof csrfToken !== 'undefined') { %>
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <% } %>
+                    <input type="hidden" name="movie_id" value="<%= review.movie_id || '' %>">
                     <input type="hidden" name="movie_title" value="<%= review.movie_title %>">
                     <input type="hidden" name="amount" value="<%= _price %>">
-                    <input type="hidden" name="type" value="movie">
                     
-                    <div style="background:#f0fff4; border:1px solid #9ae6b4; padding:12px; border-radius:8px; color:#276749;">
-                        <i class="fas fa-info-circle"></i>
-                        Estás a punto de comprar: <strong><%= review.movie_title %></strong>
-                    </div>
-                    
-                    <div style="display:flex; gap:8px; justify-content:flex-end;">
+                    <div class="modal-actions">
                         <button type="button" class="btn btn-secondary" id="closeModalBtn2">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" id="confirmPurchaseBtn" style="background:#e53e3e;">
-                            <i class="fas fa-credit-card"></i> Confirmar Compra
+                        <button type="submit" class="btn btn-danger" id="confirmPurchaseBtn">
+                            <i class="fas fa-lock"></i> Confirmar y Pagar
                         </button>
                     </div>
                 </form>
@@ -514,7 +685,49 @@
     </div>
 
     <script>
-        // Efectos de hover para la imagen
+        // Modal de compra
+        const buyBtn = document.getElementById('buyButton');
+        const modal = document.getElementById('purchaseModal');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const closeModalBtn2 = document.getElementById('closeModalBtn2');
+        const purchaseForm = document.getElementById('purchaseForm');
+        const confirmBtn = document.getElementById('confirmPurchaseBtn');
+
+        if (buyBtn) {
+            buyBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                modal.style.display = 'flex';
+            });
+        }
+
+        if (closeModalBtn) {
+            closeModalBtn.addEventListener('click', function() {
+                modal.style.display = 'none';
+            });
+        }
+
+        if (closeModalBtn2) {
+            closeModalBtn2.addEventListener('click', function() {
+                modal.style.display = 'none';
+            });
+        }
+
+        // Cerrar modal al hacer clic fuera
+        window.addEventListener('click', function(event) {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        // Manejar envío del formulario de compra
+        if (purchaseForm && confirmBtn) {
+            purchaseForm.addEventListener('submit', function(e) {
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+            });
+        }
+
+        // Efecto hover para la imagen
         const poster = document.querySelector('.movie-poster');
         if (poster) {
             poster.addEventListener('mouseenter', function() {
@@ -525,72 +738,6 @@
                 this.style.transform = 'scale(1)';
             });
         }
-
-        // Purchase modal logic corregido
-        (function() {
-            const buyBtn = document.getElementById('buyButton');
-            const modal = document.getElementById('purchaseModal');
-            const closeModalBtn = document.getElementById('closeModalBtn');
-            const closeModalBtn2 = document.getElementById('closeModalBtn2');
-            const purchaseForm = document.getElementById('purchaseForm');
-            const confirmBtn = document.getElementById('confirmPurchaseBtn');
-
-            function openModal() {
-                if (modal) {
-                    modal.style.display = 'flex';
-                    document.body.style.overflow = 'hidden';
-                }
-            }
-
-            function closeModal() {
-                if (modal) {
-                    modal.style.display = 'none';
-                    document.body.style.overflow = 'auto';
-                }
-            }
-
-            if (buyBtn) {
-                buyBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    openModal();
-                });
-            }
-
-            if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
-            if (closeModalBtn2) closeModalBtn2.addEventListener('click', closeModal);
-
-            // Cerrar modal al hacer click fuera
-            if (modal) {
-                modal.addEventListener('click', function(e) {
-                    if (e.target === modal) {
-                        closeModal();
-                    }
-                });
-            }
-
-            if (purchaseForm && confirmBtn) {
-                purchaseForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    
-                    // UX: deshabilitar botón para evitar doble envió
-                    confirmBtn.disabled = true;
-                    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
-                    
-                    // Simular envío del formulario
-                    setTimeout(() => {
-                        // Redirección corregida
-                        window.location.href = '/purchase/checkout?movie_id=<%= review.movie_id %>&movie_title=<%= encodeURIComponent(review.movie_title) %>&amount=<%= _price %>';
-                    }, 1500);
-                });
-            }
-
-            // Cerrar con ESC
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    closeModal();
-                }
-            });
-        })();
     </script>
 </body>
 </html>

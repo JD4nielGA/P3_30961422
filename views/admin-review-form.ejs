@@ -121,18 +121,18 @@
                                         <% movies.forEach(function(movie) { %>
                                             <% if (movie.is_active) { %>
                                                 <div class="movie-item" 
-                                                     onclick="selectMovie(<%= movie.id %>, '<%= movie.title ? movie.title.replace(/'/g, "\\'") : '' %>', '<%= movie.poster_image || '' %>')"
-                                                     data-title="<%= movie.title ? movie.title.toLowerCase() : '' %>"
-                                                     data-year="<%= movie.release_year ? movie.release_year.toString().toLowerCase() : '' %>"
-                                                     data-genre="<%= movie.genre ? movie.genre.toLowerCase() : '' %>">
-                                                    <img src="<%= movie.poster_image || '/images/default-poster.jpg' %>" 
-                                                         alt="<%= movie.title || 'Película' %>" 
+                                                     onclick="selectMovie(<%= movie.id %>, '<%= movie.title.replace(/'/g, "\\'") %>', '<%= movie.poster_url %>')"
+                                                     data-title="<%= movie.title.toLowerCase() %>"
+                                                     data-year="<%= movie.year.toLowerCase() %>"
+                                                     data-genre="<%= movie.genre.toLowerCase() %>">
+                                                    <img src="<%= movie.poster_url %>" 
+                                                         alt="<%= movie.title %>" 
                                                          class="movie-poster"
                                                          onerror="this.src='/images/default-poster.jpg'">
                                                     <div class="movie-info">
-                                                        <div class="movie-title"><%= movie.title || 'Sin título' %></div>
+                                                        <div class="movie-title"><%= movie.title %></div>
                                                         <div class="movie-year">
-                                                            <%= movie.release_year || '' %> <% if (movie.genre) { %>• <%= movie.genre %><% } %>
+                                                            <%= movie.year %> • <%= movie.genre %>
                                                             <% if (movie.description) { %>
                                                                 <br><small><%= movie.description.substring(0, 80) %>...</small>
                                                             <% } %>
@@ -145,12 +145,12 @@
                                     
                                     <input type="hidden" id="movie_id" name="movie_id" value="<%= editReview ? editReview.movie_id : '' %>">
                                     <input type="hidden" id="movie_title" name="movie_title" value="<%= editReview ? editReview.movie_title : '' %>">
-                                    <input type="hidden" id="poster_url" name="poster_url" value="<%= editReview ? editReview.review_image : '' %>">
+                                    <input type="hidden" id="poster_url" name="poster_url" value="<%= editReview ? editReview.poster_url : '' %>">
                                     
                                     <div id="selectedMovie" class="alert alert-info" style="display: <%= editReview ? 'block' : 'none' %>;">
                                         <i class="fas fa-check"></i> 
                                         <span id="selectedMovieText"><%= editReview ? ('Película seleccionada: ' + editReview.movie_title) : '' %></span>
-                                        <img id="selectedPoster" src="<%= editReview && editReview.review_image ? editReview.review_image : '' %>" class="image-preview" style="display: <%= editReview && editReview.review_image ? 'block' : 'none' %>">
+                                        <img id="selectedPoster" src="<%= editReview && editReview.poster_url ? editReview.poster_url : '' %>" class="image-preview" style="display: <%= editReview && editReview.poster_url ? 'block' : 'none' %>">
                                     </div>
                                 <% } else { %>
                                     <div class="alert alert-warning">

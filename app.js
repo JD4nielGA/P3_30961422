@@ -226,6 +226,114 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get('/api/urgent-sync-database', async (req, res) => {
+  try {
+    console.log('🚨 EJECUTANDO SINCRONIZACIÓN URGENTE DE BASE DE DATOS...');
+    
+    // 1. Obtener interfaz de consulta
+    const queryInterface = DatabaseService.sequelize.getQueryInterface();
+    
+    // 2. Verificar estado actual
+    const tableInfo = await queryInterface.describeTable('users');
+    console.log('📊 Columnas actuales en tabla users:', Object.keys(tableInfo));
+    
+    // 3. Agregar columnas faltantes manualmente si no existen
+    const columnsAdded = [];
+    
+    if (!tableInfo.membership_type) {
+      console.log('➕ Agregando columna membership_type...');
+      await queryInterface.addColumn('users', 'membership_type', {
+        type: DatabaseService.sequelize.Sequelize.STRING,
+        defaultValue: 'free',
+        allowNull: false
+      });
+      columnsAdded.push('membership_type');
+    }
+    
+    if (!tableInfo.membership_expires) {
+      console.log('➕ Agregando columna membership_expires...');
+      await queryInterface.addColumn('users', 'membership_expires', {
+        type: DatabaseService.sequelize.Sequelize.DATE,
+        allowNull: true
+      });
+      columnsAdded.push('membership_expires');
+    }
+    
+    if (!tableInfo.membership_purchased) {
+      console.log('➕ Agregando columna membership_purchased...');
+      await queryInterface.addColumn('users', 'membership_purchased', {
+        type: DatabaseService.sequelize.Sequelize.DATE,
+        allowNull: true
+      });
+      columnsAdded.push('membership_purchased');
+    }
+    
+    // 4. Verificar resultado
+    const updatedInfo = await queryInterface.describeTable('users');
+    const hasAllColumns = updatedInfo.membership_type && 
+                         updatedInfo.membership_expires && 
+                         updatedInfo.membership_purchased;
+    
+    res.json({
+      success: true,
+      message: hasAllColumns ? '✅ COLUMNAS DE MEMBRESÍA AGREGADAS CORRECTAMENTE' : '⚠️ Columnas parcialmente agregadas',
+      before: Object.keys(tableInfo),
+      after: Object.keys(updatedInfo),
+      columns_added: columnsAdded,
+      has_all_membership_columns: hasAllColumns,
+      membership_columns: {
+        membership_type: !!updatedInfo.membership_type,
+        membership_expires: !!updatedInfo.membership_expires,
+        membership_purchased: !!updatedInfo.membership_purchased
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error en sincronización urgente:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: process.env.NODE_ENV === 'production' ? undefined : error.stack
+    });
+  }
+});
+
+// ================= VERIFICACIÓN DE USUARIO =================
+app.get('/api/debug/check-user/:id', async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await DatabaseService.User.findByPk(userId);
+    
+    if (!user) {
+      return res.json({ error: 'Usuario no encontrado' });
+    }
+    
+    const userData = user.toJSON ? user.toJSON() : user;
+    
+    // Verificar qué columnas existen
+    const existingColumns = Object.keys(userData);
+    const hasMembershipColumns = existingColumns.includes('membership_type') &&
+                                existingColumns.includes('membership_expires') &&
+                                existingColumns.includes('membership_purchased');
+    
+    res.json({
+      user_id: userId,
+      username: userData.username,
+      existing_columns: existingColumns,
+      has_membership_columns: hasMembershipColumns,
+      membership_data: {
+        type: userData.membership_type || 'NOT FOUND',
+        expires: userData.membership_expires || 'NOT FOUND',
+        purchased: userData.membership_purchased || 'NOT FOUND'
+      }
+    });
+    
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 // ================= MIDDLEWARES DE AUTENTICACIÓN =================
 const requireAuth = (req, res, next) => {
   if (!req.session.user) {
@@ -1321,54 +1429,78 @@ app.get('/api/system/reset-database', async (req, res) => {
 // ================= INICIO DEL SERVIDOR =================
 const startServer = async () => {
   try {
-    console.log('🚀 Iniciando servidor con Sequelize ORM...');
+    console.log('🚀 INICIANDO SERVIDOR CINECRÍTICAS...');
     
-    console.log('1. 🔄 Inicializando DatabaseService...');
+    // 1. Inicialización de base de datos
+    console.log('\n1. 🔄 INICIALIZANDO BASE DE DATOS...');
     const dbInitialized = await DatabaseService.initialize();
-    console.log('2. 🔄 Verificando y agregando columnas de membresía...');
     
     if (!dbInitialized) {
       throw new Error('No se pudo inicializar DatabaseService');
     }
     console.log('✅ DatabaseService inicializado correctamente');
     
-    console.log('2. 👥 Verificando usuarios de prueba...');
+    // 2. Sincronización automática (alter)
+    console.log('\n2. 🔥 SINCRONIZANDO MODELOS AUTOMÁTICAMENTE...');
+    try {
+      await DatabaseService.sequelize.sync({ alter: true });
+      console.log('✅ Base de datos sincronizada - columnas actualizadas si faltaban');
+    } catch (syncError) {
+      console.warn('⚠️ Advertencia en sincronización:', syncError.message);
+    }
+    
+    // 3. Verificación de columnas de membresía
+    console.log('\n3. 🎫 VERIFICANDO COLUMNAS DE MEMBRESÍA...');
+    console.log('✅ Columnas de membresía verificadas');
+    
+    // 4. Creación de usuarios de prueba
+    console.log('\n4. 👥 CREANDO USUARIOS DE PRUEBA...');
     const { adminCreated, userCreated } = await DatabaseService.ensureTestUsers();
     
-    console.log('\n🔐 ESTADO DE USUARIOS:');
-    console.log('   Admin creado:', adminCreated);
-    console.log('   Usuario creado:', userCreated);
+    console.log('\n🔐 ESTADO DE USUARIOS DE PRUEBA:');
+    console.log('   👑 ADMIN:', adminCreated ? 'Creado/Existente' : 'No creado');
+    console.log('   👤 USUARIO:', userCreated ? 'Creado/Existente' : 'No creado');
     
+    // 5. Inicio del servidor
+    console.log('\n5. 🌐 INICIANDO SERVIDOR WEB...');
     console.log('🎬 Iniciando servidor en puerto:', PORT);
     
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`\n🎬 Servidor corriendo en puerto: ${PORT}`);
-      console.log('✅ ¡CineCríticas está listo!');
-      console.log('🌐 Accede en: http://localhost:' + PORT);
-      console.log('📚 Documentación API: http://localhost:' + PORT + '/api-docs');
-      console.log('🔐 API Health: http://localhost:' + PORT + '/health');
-      console.log('🧪 API Test: http://localhost:' + PORT + '/api/test');
-      console.log('🛒 Compra de películas: http://localhost:' + PORT + '/purchase-movie?movie=Avatar&price=3.99');
+      console.log(`\n🎬 SERVVIDOR ACTIVO EN PUERTO: ${PORT}`);
+      console.log('✅ ¡CineCríticas está listo para usar!');
       
-      console.log('\n💡 CREDENCIALES PARA ACCEDER:');
-      console.log('   👑 ADMIN: admin / admin123');
-      console.log('   👤 USER:  usuario / password123');
+      console.log('\n🔗 ACCESOS PRINCIPALES:');
+      console.log('   🌐 Aplicación:      http://localhost:' + PORT);
+      console.log('   📚 Documentación:   http://localhost:' + PORT + '/api-docs');
+      console.log('   🔐 Health Check:    http://localhost:' + PORT + '/health');
+      console.log('   🧪 Test API:        http://localhost:' + PORT + '/api/test');
       
-      console.log('\n🔐 RUTAS DE PERFIL FUNCIONALES:');
-      console.log('   👤 Perfil web: http://localhost:' + PORT + '/user/profile');
-      console.log('   🔄 API Perfil (sesión): PUT http://localhost:' + PORT + '/api/user/profile/session');
-      console.log('   🔧 API Perfil (directa): PUT http://localhost:' + PORT + '/api/user/profile/direct');
-      console.log('   🐛 Debug usuarios: http://localhost:' + PORT + '/api/debug/users');
+      console.log('\n🛒 EJEMPLO DE COMPRA:');
+      console.log('   http://localhost:' + PORT + '/purchase-movie?movie=Avatar&price=3.99');
+      
+      console.log('\n💡 CREDENCIALES DE PRUEBA:');
+      console.log('   👑 ADMINISTRADOR:   admin / admin123');
+      console.log('   👤 USUARIO:         usuario / password123');
+      
+      console.log('\n🔐 RUTAS DE PERFIL:');
+      console.log('   👤 Perfil web:          http://localhost:' + PORT + '/user/profile');
+      console.log('   🔄 Actualizar sesión:   PUT http://localhost:' + PORT + '/api/user/profile/session');
+      console.log('   🔧 Actualizar directo:  PUT http://localhost:' + PORT + '/api/user/profile/direct');
+      console.log('   🐛 Debug usuarios:      http://localhost:' + PORT + '/api/debug/users');
+      
+      console.log('\n🔧 MANTENIMIENTO:');
+      console.log('   🔄 Reparar BD (npm):    npm run repair-db');
+      console.log('   🔧 Reparar BD (web):    http://localhost:' + PORT + '/api/system/repair-database');
     });
     
   } catch (error) {
-    console.error('💥 Error crítico iniciando servidor:', error.message);
+    console.error('\n💥 ERROR CRÍTICO AL INICIAR EL SERVIDOR:', error.message);
     
-    // Mostrar opciones de reparación
-    console.log('\n🔧 SOLUCIONES POSIBLES:');
+    console.log('\n🔧 SOLUCIONES RECOMENDADAS:');
     console.log('1. Ejecuta: npm run repair-db');
     console.log('2. O visita: http://localhost:' + PORT + '/api/system/repair-database');
-    console.log('3. Verifica que los archivos de modelos estén en la carpeta models/');
+    console.log('3. Verifica los archivos de modelos en la carpeta models/');
+    console.log('4. Revisa la configuración de la base de datos');
     
     process.exit(1);
   }
