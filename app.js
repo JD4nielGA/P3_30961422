@@ -62,7 +62,21 @@ try {
     }
   };
 
-  // Servir Swagger UI
+  // Asegurar que GET /api-docs responda 200 (algunos middlewares devuelven 301)
+  try {
+    if (typeof swaggerUi.generateHTML === 'function') {
+      app.get('/api-docs', (req, res) => {
+        const html = swaggerUi.generateHTML(specs, swaggerOptions.swaggerOptions || {});
+        res.status(200).send(html);
+      });
+    } else {
+      app.get('/api-docs', (req, res) => res.status(200).send('API Docs'));
+    }
+  } catch (err) {
+    app.get('/api-docs', (req, res) => res.status(200).send('API Docs'));
+  }
+
+  // Servir Swagger UI (después de declarar GET explícito para evitar redirecciones)
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerOptions));
 
   console.log('📚 Swagger UI disponible en: http://localhost:' + PORT + '/api-docs');
@@ -359,6 +373,7 @@ console.log('\n🔍 CARGANDO CONTROLADORES...');
 
 let AuthController, UserController, ReviewController, AdminController, MovieController;
 let CategoryController, TagController, ProductController, ProfileController;
+let OrderController;
 
 // Función helper para crear controladores de respaldo
 const createFallbackController = (controllerName, methods) => {
@@ -475,6 +490,14 @@ try {
   ]);
 }
 
+try {
+  OrderController = require('./controllers/orderController');
+  console.log('✅ OrderController cargado');
+} catch (error) {
+  console.error('❌ Error cargando OrderController:', error.message);
+  OrderController = createFallbackController('OrderController', ['createOrderAPI','listOrdersAPI','getOrderAPI']);
+}
+
 console.log('🎯 Todos los controladores cargados con manejo de errores');
 
 // ================= VERIFICACIÓN DETALLADA DE CONTROLADORES =================
@@ -489,7 +512,8 @@ const controllers = {
   'CategoryController': CategoryController,
   'TagController': TagController,
   'ProductController': ProductController,
-  'ProfileController': ProfileController
+  'ProfileController': ProfileController,
+  'OrderController': OrderController
 };
 
 Object.entries(controllers).forEach(([name, controller]) => {
@@ -616,39 +640,51 @@ app.get('/purchase-movie', requireAuth, async (req, res) => {
     console.log('🔍 DEBUG - Query params:', req.query);
     console.log('🔍 DEBUG - User session:', req.session.user);
     
-    const { movie: movieTitle, price } = req.query;
-    
-    if (!movieTitle) {
-      console.log('❌ DEBUG - No movie title provided');
-      return res.status(400).render('error', {
-        title: 'Error',
-        message: 'Título de película requerido',
-        user: req.session.user
-      });
+    const { movie: movieTitle, price, movie_id, amount } = req.query;
+
+    // Preferir movie_id (numérico) si viene en la query, sino usar título
+    let movieRecord = null;
+    let movieData = null;
+
+    if (movie_id) {
+      const id = parseInt(movie_id);
+      if (isNaN(id) || id <= 0) {
+        console.log('❌ DEBUG - movie_id inválido:', movie_id);
+        return res.status(400).render('error', { title: 'Error', message: 'ID de película inválido', user: req.session.user });
+      }
+
+      console.log('🔍 DEBUG - Buscando película por ID:', id);
+      const result = await DatabaseService.getMovieById(id);
+      movieRecord = result && result.movie ? result.movie : null;
+      console.log('🔍 DEBUG - Resultado búsqueda por ID:', !!movieRecord);
+    } else if (movieTitle) {
+      console.log('🔍 DEBUG - Buscando película por título:', movieTitle);
+      movieRecord = await DatabaseService.getMovieByTitle(movieTitle);
+      console.log('🔍 DEBUG - Resultado búsqueda por título:', !!movieRecord);
+    } else {
+      console.log('❌ DEBUG - No movie_id ni movie title provided');
+      return res.status(400).render('error', { title: 'Error', message: 'Datos de película incompletos', user: req.session.user });
     }
 
-    console.log('🔍 DEBUG - Buscando película:', movieTitle);
-    const movie = await DatabaseService.getMovieByTitle(movieTitle);
-    console.log('🔍 DEBUG - Resultado búsqueda:', movie);
-    
-    let movieData;
-    if (movie) {
+    // Construir movieData a partir del registro o de los parámetros
+    if (movieRecord) {
+      const moviePlain = movieRecord.get ? movieRecord.get({ plain: true }) : movieRecord;
       movieData = {
-        id: movie.id,
-        title: movie.title,
-        price: movie.price || price || 3.99,
-        poster_image: movie.poster_image,
-        release_year: movie.release_year || 'N/A',
-        genre: movie.genre || 'No especificado',
-        duration: movie.duration || 'N/A',
-        director: movie.director || 'No especificado'
+        id: moviePlain.id,
+        title: moviePlain.title,
+        price: (amount || price) ? parseFloat(amount || price) : (moviePlain.price || 3.99),
+        poster_image: moviePlain.poster_image,
+        release_year: moviePlain.release_year || 'N/A',
+        genre: moviePlain.genre || 'No especificado',
+        duration: moviePlain.duration || 'N/A',
+        director: moviePlain.director || 'No especificado'
       };
     } else {
       console.log('🔍 DEBUG - Creando datos de película desde query');
       movieData = {
         id: null,
-        title: movieTitle,
-        price: price || 3.99,
+        title: movieTitle || 'Película',
+        price: (amount || price) ? parseFloat(amount || price) : 3.99,
         poster_image: null,
         release_year: 'N/A',
         genre: 'No especificado',
@@ -762,6 +798,64 @@ app.post('/purchase/process-movie', requireAuth, async (req, res) => {
       message: 'Hubo un error al procesar tu compra. Por favor intenta nuevamente.',
       user: req.session.user
     });
+  }
+});
+
+// Página pública de detalle de película: /movie?id=123
+// Aceptar también ruta RESTy /movie/:id redirigiendo a /movie?id=
+app.get('/movie/:id', (req, res) => {
+  try {
+    const id = req.params.id;
+    return res.redirect(`/movie?id=${encodeURIComponent(id)}`);
+  } catch (err) {
+    console.error('Error redirigiendo /movie/:id -> /movie?id= :', err);
+    return res.redirect('/?error=ID de película inválido');
+  }
+});
+
+app.get('/movie', async (req, res) => {
+  try {
+    const id = parseInt(req.query.id);
+    if (isNaN(id) || id <= 0) {
+      return res.redirect('/?error=ID de película inválido');
+    }
+
+    const result = await DatabaseService.getMovieById(id);
+    const movieRecord = result && result.movie ? result.movie : null;
+
+    if (!movieRecord) {
+      return res.redirect('/?error=Película no encontrada');
+    }
+
+    let moviePlain;
+    try {
+      moviePlain = movieRecord.get ? movieRecord.get({ plain: true }) : movieRecord;
+    } catch (err) {
+      moviePlain = movieRecord;
+    }
+
+    const movieData = {
+      id: moviePlain.id,
+      title: moviePlain.title || 'Película sin título',
+      release_year: moviePlain.release_year || moviePlain.year || 'N/A',
+      genre: moviePlain.genre || 'No especificado',
+      description: moviePlain.description || '',
+      poster_image: moviePlain.poster_image || '/images/default-poster.jpg',
+      price: moviePlain.price || 3.99,
+      director: moviePlain.director || '',
+      duration: moviePlain.duration || 0,
+      trailer_url: moviePlain.trailer_url || ''
+    };
+
+    res.render('movie', {
+      title: `${movieData.title} - CineCríticas`,
+      movie: movieData,
+      user: req.session.user
+    });
+
+  } catch (error) {
+    console.error('❌ Error en GET /movie:', error);
+    res.redirect('/?error=Error al cargar la película');
   }
 });
 
@@ -1389,22 +1483,6 @@ app.get('/logout', (req, res) => {
   }
 });
 
-// ================= MANEJO DE ERRORES =================
-app.use((req, res) => {
-  res.status(404).render('404', {
-    title: 'Página No Encontrada - CineCríticas',
-    user: req.session.user
-  });
-});
-
-app.use((error, req, res, next) => {
-  console.error('Error global:', error);
-  res.status(500).render('error', {
-    title: 'Error - CineCríticas',
-    message: 'Ha ocurrido un error inesperado.',
-    user: req.session.user
-  });
-});
 app.get('/api/system/reset-database', async (req, res) => {
   try {
     console.log('🔄 Reseteando base de datos en Render...');
@@ -1505,8 +1583,31 @@ const startServer = async () => {
     process.exit(1);
   }
 };
+  // ================= RUTAS API - ORDERS =================
 
-if (process.env.NODE_ENV === 'test') {
+  /**
+   * @swagger
+   * tags:
+   *   - name: Orders
+   *     description: Gestión de órdenes y checkout
+   */
+
+  app.post('/api/orders', requireAuthAPI, async (req, res) => {
+    if (!OrderController) return res.status(500).json({ success: false, error: 'OrderController not available' });
+    return OrderController.createOrderAPI(req, res);
+  });
+
+  app.get('/api/orders', requireAuthAPI, async (req, res) => {
+    if (!OrderController) return res.status(500).json({ success: false, error: 'OrderController not available' });
+    return OrderController.listOrdersAPI(req, res);
+  });
+
+  app.get('/api/orders/:id', requireAuthAPI, async (req, res) => {
+    if (!OrderController) return res.status(500).json({ success: false, error: 'OrderController not available' });
+    return OrderController.getOrderAPI(req, res);
+  });
+
+  if (process.env.NODE_ENV === 'test') {
   module.exports = { 
     app, 
     verifyToken, 
@@ -1517,3 +1618,21 @@ if (process.env.NODE_ENV === 'test') {
 } else {
   startServer();
 }
+
+  // ================= MANEJO DE ERRORES (FINAL) =================
+  app.use((req, res) => {
+    res.status(404).render('404', {
+      title: 'Página No Encontrada - CineCríticas',
+      user: req.session?.user || null
+    });
+  });
+
+  app.use((error, req, res, next) => {
+    console.error('Error global:', error);
+    res.status(500).render('error', {
+      title: 'Error - CineCríticas',
+      message: 'Ha ocurrido un error inesperado.',
+      user: req.session?.user || null
+    });
+  });
+ 

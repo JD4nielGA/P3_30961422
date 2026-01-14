@@ -132,6 +132,27 @@ const options = {
             }
           }
         }
+        ,
+        Order: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer', example: 1 },
+            user_id: { type: 'integer', example: 1 },
+            status: { type: 'string', example: 'COMPLETED' },
+            total_amount: { type: 'number', example: 29.99 },
+            created_at: { type: 'string', format: 'date-time' }
+          }
+        },
+        OrderItem: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer', example: 1 },
+            order_id: { type: 'integer', example: 1 },
+            product_id: { type: 'integer', example: 2 },
+            quantity: { type: 'integer', example: 2 },
+            unit_price: { type: 'number', example: 9.99 }
+          }
+        }
       }
     },
     tags: [
@@ -162,6 +183,11 @@ const options = {
       {
         name: 'Test',
         description: 'Endpoints de prueba'
+      }
+      ,
+      {
+        name: 'Orders',
+        description: 'Endpoints de gestión de órdenes y checkout'
       }
     ]
   },

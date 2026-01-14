@@ -670,6 +670,144 @@
             border-radius: 50%;
             animation: float 15s infinite linear;
         }
+        /* Movies grid styles */
+        .movie-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 18px;
+            margin-bottom: 40px;
+            align-items: start;
+        }
+
+        .movie-card {
+            background: var(--card-bg);
+            padding: 12px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid rgba(15, 23, 42, 0.06);
+            color: var(--dark);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+            overflow: hidden;
+        }
+
+        .movie-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 18px 40px rgba(2,6,23,0.18);
+        }
+
+        .movie-poster {
+            width: 100%;
+            height: 320px;
+            border-radius: 8px;
+            object-fit: contain;
+            object-position: center;
+            display: block;
+            background: linear-gradient(135deg, rgba(99,102,241,0.03), rgba(16,185,129,0.02));
+        }
+
+        .poster-wrapper {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            background: linear-gradient(180deg, rgba(0,0,0,0.03), rgba(0,0,0,0.02));
+        }
+
+        .poster-overlay {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 12px 14px;
+            background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(2,6,23,0.65) 60%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.0;
+            transition: opacity 0.25s ease;
+        }
+
+        .movie-card:hover .poster-overlay {
+            opacity: 1;
+        }
+
+        .overlay-title {
+            font-weight: 700;
+            font-size: 1rem;
+            text-align: center;
+            text-shadow: 0 6px 18px rgba(2,6,23,0.5);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
+        /* subtle decorative border around card content */
+        .movie-card-inner {
+            padding: 8px 6px 0 6px;
+        }
+
+        .movie-title {
+            margin-top: 12px;
+            color: var(--darker);
+            font-size: 1rem;
+            text-decoration: none;
+            display: block;
+            font-weight: 700;
+            line-height: 1.2;
+            background: linear-gradient(90deg, var(--primary-dark), var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .movie-title:hover {
+            opacity: 0.95;
+            text-decoration: none;
+        }
+
+        .movie-year {
+            color: var(--gray);
+            font-size: 0.85rem;
+            margin-top: 6px;
+        }
+
+        .movie-desc {
+            color: var(--gray);
+            font-size: 0.95rem;
+            margin-top: 8px;
+            min-height: 42px;
+            max-height: 84px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .buy-row {
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:8px;
+            margin-top:12px;
+        }
+
+        .price-tag {
+            color: var(--primary-dark);
+            font-weight: 800;
+            font-size: 1rem;
+        }
+
+        .btn-buy {
+            padding: 8px 12px;
+            font-size: 0.95rem;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent), #059669);
+            color: white;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
     </style>
 </head>
 <body>
@@ -852,6 +990,42 @@
         </div>
 
         <!-- Featured Reviews -->
+        <!-- Movies Carousel / Grid -->
+        <% if (movies && movies.length > 0) { %>
+            <h2 class="section-title" style="margin-top: 30px;">
+                <i class="fas fa-film"></i> Películas
+            </h2>
+            <div class="movie-grid">
+                <% movies.forEach(function(movie){ %>
+                    <div class="movie-card">
+                        <div class="poster-wrapper">
+                        <% if (movie.poster_image) { %>
+                            <img class="movie-poster" loading="lazy" src="<%= movie.poster_image %>" alt="<%= movie.title %> poster" />
+                        <% } else { %>
+                            <div class="movie-poster" style="display:flex;align-items:center;justify-content:center;color:var(--gray-light);">
+                                <i class="fas fa-film" style="font-size:36px;"></i>
+                            </div>
+                        <% } %>
+                            <div class="poster-overlay">
+                                <div class="overlay-title"><%= movie.title %> <% if (movie.release_year) { %>• <span style="opacity:0.9; font-weight:600;"><%= movie.release_year %></span><% } %></div>
+                            </div>
+                        </div>
+                        <div class="movie-card-inner">
+                            <a class="movie-title" href="/movie?id=<%= movie.id %>"><%= movie.title %></a>
+                            <% if (movie.release_year) { %>
+                                <div class="movie-year"><%= movie.release_year %></div>
+                            <% } %>
+                            <!-- Mostrar sólo el enlace a la página de detalle (/movie) -->
+                            <div style="margin-top:12px;">
+                                <a class="btn-buy" href="/movie?id=<%= movie.id %>">
+                                    <i class="fas fa-eye"></i> Ver
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+        <% } %>
         <div id="reviews">
             <% if (featuredReviews && featuredReviews.length > 0) { %>
                 <h2 class="section-title">

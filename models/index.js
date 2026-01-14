@@ -484,6 +484,74 @@ Tag.belongsToMany(Product, {
 
 console.log('✅ Relaciones de modelos definidas correctamente');
 
+// ================= MODELOS DE ÓRDENES =================
+
+const Order = sequelize.define('Order', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  user_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  status: {
+    type: DataTypes.ENUM('PENDING','COMPLETED','CANCELED','PAYMENT_FAILED'),
+    allowNull: false,
+    defaultValue: 'PENDING'
+  },
+  total_amount: {
+    type: DataTypes.DECIMAL(10,2),
+    allowNull: false,
+    defaultValue: 0.00
+  }
+}, {
+  tableName: 'orders',
+  timestamps: true,
+  underscored: true
+});
+
+const OrderItem = sequelize.define('OrderItem', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  order_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  product_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  quantity: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 1
+  },
+  unit_price: {
+    type: DataTypes.DECIMAL(10,2),
+    allowNull: false,
+    defaultValue: 0.00
+  }
+}, {
+  tableName: 'order_items',
+  timestamps: true,
+  underscored: true
+});
+
+// Relaciones Orders
+User.hasMany(Order, { foreignKey: 'user_id', as: 'orders' });
+Order.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
+Order.hasMany(OrderItem, { foreignKey: 'order_id', as: 'items' });
+OrderItem.belongsTo(Order, { foreignKey: 'order_id', as: 'order' });
+
+Product.hasMany(OrderItem, { foreignKey: 'product_id', as: 'order_items' });
+OrderItem.belongsTo(Product, { foreignKey: 'product_id', as: 'product' });
+
 // ================= FUNCIÓN DE INICIALIZACIÓN =================
 
 const initializeDatabase = async () => {
@@ -516,5 +584,7 @@ module.exports = {
   Product,
   Series,
   Purchase,
+  Order,
+  OrderItem,
   initializeDatabase  // ← ¡ESTA LÍNEA ES CLAVE!
 };

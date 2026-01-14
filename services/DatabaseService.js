@@ -459,6 +459,26 @@ class DatabaseService {
     }
   }
 
+  async getAllMovies(limit = 24) {
+    try {
+      await this.ensureDatabase();
+      console.log('🎬 Obteniendo películas para home...');
+
+      const movies = await this.Movie.findAll({
+        where: { is_active: true },
+        attributes: ['id', 'title', 'poster_image', 'release_year', 'description', 'price'],
+        order: [['created_at', 'DESC']],
+        limit: limit
+      });
+
+      console.log(`✅ ${movies.length} películas encontradas`);
+      return movies;
+    } catch (error) {
+      console.error('❌ Error en getAllMovies:', error.message);
+      return [];
+    }
+  }
+
   async recordPurchase(purchaseData) {
     try {
       return await this.createPurchase(purchaseData);

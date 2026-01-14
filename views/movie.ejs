@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(180deg,#071028 0%, #0b1220 100%); color: #e6eef8; margin:0; padding:28px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .back { margin-bottom: 18px; }
+        .movie-detail { display: grid; grid-template-columns: 380px 1fr; gap: 32px; align-items: start; }
+        .poster { width:100%; height:560px; object-fit:cover; border-radius: 14px; box-shadow: 0 30px 60px rgba(2,6,23,0.6); border: 1px solid rgba(255,255,255,0.04); }
+        .meta { background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); padding: 28px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.04); }
+        .title { font-size: 2.25rem; font-weight: 900; margin-bottom: 8px; color: #f8fafc; letter-spacing: -0.02em; }
+        .sub { color: #93a6bf; margin-bottom: 14px; }
+        .desc { color: #cbd5e1; line-height:1.7; margin-bottom: 20px; max-height: 220px; overflow: auto; }
+        .meta-row { display:flex; gap:12px; align-items:center; margin-bottom:14px; }
+        .badge { background: rgba(255,255,255,0.04); color: #cbd5e1; padding:8px 12px; border-radius:999px; font-weight:700; font-size:0.95rem; }
+        .price { font-size: 1.6rem; font-weight: 900; color: #34d399; margin-bottom: 16px; }
+        .btn-buy { display:inline-flex; gap:10px; align-items:center; padding:12px 18px; border-radius:12px; text-decoration:none; color:white; background:linear-gradient(135deg,#6366f1,#4f46e5); box-shadow: 0 12px 30px rgba(79,70,229,0.18); }
+        .btn-outline { display:inline-flex; gap:10px; align-items:center; padding:10px 14px; border-radius:12px; text-decoration:none; color:#94a3b8; background:transparent; border:1px solid rgba(255,255,255,0.04); }
+        .trailer { margin-top:18px; border-radius:10px; overflow:hidden; box-shadow: 0 14px 36px rgba(2,6,23,0.55); }
+        @media (max-width:900px) { .movie-detail { grid-template-columns: 1fr; } .poster{height:420px;} }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="back"><a href="/" style="color:#94a3b8;text-decoration:none;"><i class="fas fa-chevron-left"></i> Volver</a></div>
+
+        <div class="movie-detail">
+            <div>
+                <% if (movie.poster_image) { %>
+                    <img class="poster" src="<%= movie.poster_image %>" alt="<%= movie.title %> poster" />
+                <% } else { %>
+                    <div class="poster" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0b1220,#0f172a);color:#64748b;height:560px;"> <i class="fas fa-film" style="font-size:56px;"></i> </div>
+                <% } %>
+            </div>
+
+            <div class="meta">
+                <div class="title"><%= movie.title %></div>
+
+                <div class="meta-row">
+                    <% if (movie.release_year) { %>
+                        <div class="badge"><i class="far fa-calendar-alt" style="margin-right:8px;"></i> <%= movie.release_year %></div>
+                    <% } %>
+                    <% if (movie.genre) { %>
+                        <div class="badge"><i class="fas fa-tag" style="margin-right:8px;"></i> <%= movie.genre %></div>
+                    <% } %>
+                </div>
+
+                <div class="desc"><%= movie.description || 'Sin descripción disponible.' %></div>
+
+                <div style="display:flex;gap:12px;align-items:center;margin-top:18px;">
+                    <div class="price">€<%= movie.price ? parseFloat(movie.price).toFixed(2) : (3.99).toFixed(2) %></div>
+
+                    <a class="btn-buy" href="/purchase-movie?movie_id=<%= movie.id %>&amount=<%= movie.price ? movie.price : 3.99 %>">
+                        <i class="fas fa-shopping-cart"></i> Comprar
+                    </a>
+
+                    <a class="btn-outline" href="/movie?id=<%= movie.id %>#reviews">
+                        <i class="fas fa-comments" style="margin-right:8px;"></i> Ver Reseñas
+                    </a>
+                </div>
+
+                <% if (movie.trailer_url) { %>
+                    <div class="trailer">
+                        <iframe width="100%" height="315" src="<%= movie.trailer_url %>" frameborder="0" allowfullscreen></iframe>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

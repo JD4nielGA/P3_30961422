@@ -324,7 +324,7 @@
                     </h3>
                     
                     <div class="payment-option" onclick="selectPayment(this, 'card')">
-                        <input type="radio" name="payment_method" value="card" id="card" style="display: none;">
+                        <input type="radio" name="payment_method" value="card" id="card" style="display: none;" checked>
                         <label for="card" style="cursor: pointer; display: flex; align-items: center;">
                             <i class="fas fa-credit-card payment-icon"></i>
                             Tarjeta de Crédito/Débito
@@ -341,7 +341,7 @@
                 </div>
 
                 <!-- Formulario de tarjeta -->
-                <div id="cardForm" style="display: none;">
+                <div id="cardForm" style="display: block;">
                     <div class="form-group">
                         <label for="card_number">Número de Tarjeta</label>
                         <input type="text" id="card_number" name="card_number" class="form-control" 
@@ -385,7 +385,7 @@
                     </div>
                 </div>
 
-                <button type="submit" class="btn-purchase" id="purchaseBtn" disabled>
+                <button type="submit" class="btn-purchase" id="purchaseBtn">
                     <i class="fas fa-lock"></i> Comprar por €<%= movie.price ? parseFloat(movie.price).toFixed(2) : '3.99' %>
                 </button>
             </form>

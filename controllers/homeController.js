@@ -27,6 +27,10 @@ class HomeController {
       // Obtener reseñas recientes usando el método nuevo
       const allReviews = await DatabaseService.getRecentReviewsForHome();
 
+      // Obtener películas para mostrar en el home
+      const movies = await DatabaseService.getAllMovies(20);
+      console.log('🎬 Películas cargadas para home:', movies.length);
+
       console.log('📊 Reseñas cargadas:', {
         destacadas: featuredReviews.length,
         total: allReviews.length
@@ -96,6 +100,7 @@ class HomeController {
         user: user, // Usar la variable segura
         featuredReviews: processedFeaturedReviews,
         allReviews: processedAllReviews,
+        movies: movies.map(m => (m.toJSON ? m.toJSON() : m)),
         success: req.query.success,
         error: req.query.error
       });
