@@ -288,32 +288,42 @@ app.get('/api/urgent-sync-database', async (req, res) => {
                          updatedInfo.membership_expires && 
                          updatedInfo.membership_purchased;
     
+    /* Swagger example removed (was YAML-like and caused syntax error)
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Payment'
+            examples:
+              cardExample:
+                summary: Pago con tarjeta (ejemplo)
+                value:
+                  movie_id: 2
+                  amount: 12.99
+                  payment_method: card
+                  card_type: visa
+                  card_number: "4242 4242 4242 4242"
+                  expiry_date: "12/26"
+                  cvv: "123"
+                  card_holder: "Juan Pérez"
+    */
+
+    // Responder al endpoint de sincronización urgente
     res.json({
       success: true,
-      message: hasAllColumns ? '✅ COLUMNAS DE MEMBRESÍA AGREGADAS CORRECTAMENTE' : '⚠️ Columnas parcialmente agregadas',
-      before: Object.keys(tableInfo),
-      after: Object.keys(updatedInfo),
-      columns_added: columnsAdded,
-      has_all_membership_columns: hasAllColumns,
-      membership_columns: {
-        membership_type: !!updatedInfo.membership_type,
-        membership_expires: !!updatedInfo.membership_expires,
-        membership_purchased: !!updatedInfo.membership_purchased
-      }
+      columnsAdded,
+      hasAllColumns: !!hasAllColumns,
+      table: 'users',
+      updatedInfo
     });
-    
   } catch (error) {
-    console.error('❌ Error en sincronización urgente:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      stack: process.env.NODE_ENV === 'production' ? undefined : error.stack
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
-// ================= VERIFICACIÓN DE USUARIO =================
-app.get('/api/debug/check-user/:id', async (req, res) => {
+// Endpoint para obtener información de un usuario por ID
+app.get('/api/user/:id', async (req, res) => {
   try {
     const userId = req.params.id;
     const user = await DatabaseService.User.findByPk(userId);
@@ -636,9 +646,7 @@ app.get('/api/test', (req, res) => {
  */
 app.get('/purchase-movie', requireAuth, async (req, res) => {
   try {
-    console.log('🔍 DEBUG - Accediendo a /purchase-movie');
-    console.log('🔍 DEBUG - Query params:', req.query);
-    console.log('🔍 DEBUG - User session:', req.session.user);
+    // Removed verbose debug logs to keep output clean in production/dev
     
     const { movie: movieTitle, price, movie_id, amount } = req.query;
 
@@ -693,12 +701,13 @@ app.get('/purchase-movie', requireAuth, async (req, res) => {
       };
     }
 
-    console.log('🔍 DEBUG - Renderizando purchase-movie con datos:', movieData);
+    // render without debug logging
     
     res.render('purchase-movie', {
       title: `Comprar ${movieData.title} - CineCríticas`,
       movie: movieData,
-      user: req.session.user
+      user: req.session.user,
+      error: req.query.error || null
     });
 
   } catch (error) {
@@ -768,24 +777,81 @@ app.post('/purchase/process-movie', requireAuth, async (req, res) => {
       movie_title 
     } = req.body;
 
-    console.log('Procesando compra:', {
-      user_id: req.session.user.id,
-      movie_id,
-      movie_title,
-      amount,
-      payment_method,
-      card_number: payment_method === 'card' ? `••••${card_number?.slice(-4)}` : 'N/A'
-    });
+    // Minimal logging: avoid printing sensitive data
+    console.log('Procesando compra - user:', req.session.user?.id, 'movie_id:', movie_id, 'amount:', amount, 'method:', payment_method);
 
-    // Guardar la compra en la base de datos
-    const purchase = await DatabaseService.recordPurchase({
-      user_id: req.session.user.id,
-      movie_id: movie_id || null,
-      movie_title: movie_title || 'Película Comprada',
-      amount: parseFloat(amount),
-      payment_method,
-      status: 'completed'
-    });
+      // ================= VALIDACIÓN DE PAGO (BÁSICA) =================
+      if ((payment_method || 'card') === 'card') {
+        const cardNumRaw = String(card_number || '').replace(/\s+/g, '');
+        if (!/^\d+$/.test(cardNumRaw)) {
+          return res.redirect(`/purchase-movie?movie_id=${encodeURIComponent(movie_id||'')}&amount=${encodeURIComponent(amount||'')}&error=${encodeURIComponent('El número de tarjeta debe contener sólo dígitos.')}`);
+        }
+        if (cardNumRaw.length < 13 || cardNumRaw.length > 19) {
+          return res.redirect(`/purchase-movie?movie_id=${encodeURIComponent(movie_id||'')}&amount=${encodeURIComponent(amount||'')}&error=${encodeURIComponent('El número de tarjeta tiene una longitud inválida.')}`);
+        }
+
+        const cvvRaw = String(cvv || '').trim();
+        if (!/^\d+$/.test(cvvRaw)) {
+          return res.redirect(`/purchase-movie?movie_id=${encodeURIComponent(movie_id||'')}&amount=${encodeURIComponent(amount||'')}&error=${encodeURIComponent('El CVV debe contener sólo dígitos.')}`);
+        }
+
+        const cardType = String(req.body.card_type || '').toLowerCase();
+        if (cardType === 'amex') {
+          if (cvvRaw.length !== 4) {
+            return res.redirect(`/purchase-movie?movie_id=${encodeURIComponent(movie_id||'')}&amount=${encodeURIComponent(amount||'')}&error=${encodeURIComponent('El CVV para AMEX debe tener 4 dígitos.')}`);
+          }
+        } else if (cvvRaw.length !== 3) {
+          return res.redirect(`/purchase-movie?movie_id=${encodeURIComponent(movie_id||'')}&amount=${encodeURIComponent(amount||'')}&error=${encodeURIComponent('El CVV debe tener 3 dígitos.')}`);
+        }
+
+        // Allow flexible expiry formats: MM/YY, M/YY, MMYY, MM/YYYY, MM-YYYY, MYYYY, etc.
+        const expiryRaw = String(expiry_date || '').trim();
+        const digits = expiryRaw.replace(/\D/g, '');
+        let expMonth = null;
+        let expYear = null;
+
+        if (digits.length === 3) {
+          // MYY -> pad month
+          expMonth = parseInt(digits.substring(0,1), 10);
+          expYear = 2000 + parseInt(digits.substring(1,3), 10);
+        } else if (digits.length === 4) {
+          // MMYY
+          expMonth = parseInt(digits.substring(0,2), 10);
+          expYear = 2000 + parseInt(digits.substring(2,4), 10);
+        } else if (digits.length === 5) {
+          // MYYYY
+          expMonth = parseInt(digits.substring(0,1), 10);
+          expYear = parseInt(digits.substring(1,5), 10);
+        } else if (digits.length === 6) {
+          // MMYYYY
+          expMonth = parseInt(digits.substring(0,2), 10);
+          expYear = parseInt(digits.substring(2,6), 10);
+        } else {
+          return res.redirect(`/purchase-movie?movie_id=${encodeURIComponent(movie_id||'')}&amount=${encodeURIComponent(amount||'')}&error=${encodeURIComponent('Formato de expiración inválido. Usa MM/AA o MM/YYYY (ej: 07/26 ó 07/2026).')}`);
+        }
+        if (isNaN(expMonth) || expMonth < 1 || expMonth > 12) {
+          return res.redirect(`/purchase-movie?movie_id=${encodeURIComponent(movie_id||'')}&amount=${encodeURIComponent(amount||'')}&error=${encodeURIComponent('Mes de expiración inválido.')}`);
+        }
+        const now = new Date();
+        const expiryDate = new Date(expYear, expMonth - 1 + 1, 0); // last day of expiry month
+        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        if (expiryDate < currentMonthStart) {
+          return res.redirect(`/purchase-movie?movie_id=${encodeURIComponent(movie_id||'')}&amount=${encodeURIComponent(amount||'')}&error=${encodeURIComponent('La tarjeta está vencida.')}`);
+        }
+        if (expYear > now.getFullYear() + 30) {
+          return res.redirect(`/purchase-movie?movie_id=${encodeURIComponent(movie_id||'')}&amount=${encodeURIComponent(amount||'')}&error=${encodeURIComponent('Año de expiración poco realista.')}`);
+        }
+      }
+
+      // Guardar la compra en la base de datos
+      const purchase = await DatabaseService.recordPurchase({
+        user_id: req.session.user.id,
+        movie_id: movie_id || null,
+        movie_title: movie_title || 'Película Comprada',
+        amount: parseFloat(amount),
+        payment_method,
+        status: 'completed'
+      });
 
     console.log('✅ Compra registrada:', purchase);
 

@@ -153,6 +153,21 @@ const options = {
             unit_price: { type: 'number', example: 9.99 }
           }
         }
+        ,
+        Payment: {
+          type: 'object',
+          properties: {
+            movie_id: { type: 'integer', example: 2 },
+            amount: { type: 'number', example: 12.99 },
+            payment_method: { type: 'string', enum: ['card','paypal'], example: 'card' },
+            card_type: { type: 'string', enum: ['visa','mastercard','amex'], example: 'visa', description: 'Tipo de tarjeta (visa, mastercard, amex) para validación UI' },
+            card_number: { type: 'string', example: '4242 4242 4242 4242' },
+            expiry_date: { type: 'string', example: '12/26', description: 'Formato MM/AA' },
+            cvv: { type: 'string', example: '123' },
+            card_holder: { type: 'string', example: 'Juan Pérez' }
+          },
+          required: ['movie_id','amount','payment_method']
+        }
       }
     },
     tags: [

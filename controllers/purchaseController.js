@@ -266,6 +266,88 @@ class PurchaseController {
         purchaseAmount = parseFloat(moviePlain.price);
       }
 
+      // ================= VALIDACIÓN DE PAGO =================
+      const { card_number, expiry_date, cvv, card_type, card_holder } = req.body;
+
+      if ((payment_method || 'card') === 'card') {
+        // card_number: solo dígitos
+        const cardNumRaw = String(card_number || '').replace(/\s+/g, '');
+        if (!/^\d+$/.test(cardNumRaw)) {
+          return res.render('purchase-movie', { title: `Comprar ${moviePlain.title}`, movie: {
+            id: moviePlain.id, title: moviePlain.title, price: purchaseAmount, poster_image: moviePlain.poster_image, release_year: moviePlain.release_year, genre: moviePlain.genre
+          }, user: req.session.user, error: 'El número de tarjeta debe contener sólo dígitos.' });
+        }
+
+        if (cardNumRaw.length < 13 || cardNumRaw.length > 19) {
+          return res.render('purchase-movie', { title: `Comprar ${moviePlain.title}`, movie: {
+            id: moviePlain.id, title: moviePlain.title, price: purchaseAmount, poster_image: moviePlain.poster_image, release_year: moviePlain.release_year, genre: moviePlain.genre
+          }, user: req.session.user, error: 'El número de tarjeta tiene una longitud inválida.' });
+        }
+
+        // CVV: solo dígitos y longitud según tipo
+        const cvvRaw = String(cvv || '').trim();
+        if (!/^\d+$/.test(cvvRaw)) {
+          return res.render('purchase-movie', { title: `Comprar ${moviePlain.title}`, movie: {
+            id: moviePlain.id, title: moviePlain.title, price: purchaseAmount, poster_image: moviePlain.poster_image, release_year: moviePlain.release_year, genre: moviePlain.genre
+          }, user: req.session.user, error: 'El CVV debe contener sólo dígitos.' });
+        }
+
+        const cardType = (card_type || '').toLowerCase();
+        if (cardType === 'amex') {
+          if (cvvRaw.length !== 4) {
+            return res.render('purchase-movie', { title: `Comprar ${moviePlain.title}`, movie: {
+              id: moviePlain.id, title: moviePlain.title, price: purchaseAmount, poster_image: moviePlain.poster_image, release_year: moviePlain.release_year, genre: moviePlain.genre
+            }, user: req.session.user, error: 'El CVV para AMEX debe tener 4 dígitos.' });
+          }
+        } else {
+          if (cvvRaw.length !== 3) {
+            return res.render('purchase-movie', { title: `Comprar ${moviePlain.title}`, movie: {
+              id: moviePlain.id, title: moviePlain.title, price: purchaseAmount, poster_image: moviePlain.poster_image, release_year: moviePlain.release_year, genre: moviePlain.genre
+            }, user: req.session.user, error: 'El CVV debe tener 3 dígitos.' });
+          }
+        }
+
+        // expiry_date: validar formato y que no esté vencida
+        const expiryRaw = String(expiry_date || '').replace(/\s+/g, '');
+        const digits = expiryRaw.replace(/\D/g, '');
+        let expMonth = null;
+        let expYear = null;
+        if (digits.length === 4) {
+          // MMYY
+          expMonth = parseInt(digits.substring(0,2), 10);
+          expYear = 2000 + parseInt(digits.substring(2,4), 10);
+        } else if (digits.length === 6) {
+          // MMYYYY
+          expMonth = parseInt(digits.substring(0,2), 10);
+          expYear = parseInt(digits.substring(2,6), 10);
+        } else {
+          return res.render('purchase-movie', { title: `Comprar ${moviePlain.title}`, movie: {
+            id: moviePlain.id, title: moviePlain.title, price: purchaseAmount, poster_image: moviePlain.poster_image, release_year: moviePlain.release_year, genre: moviePlain.genre
+          }, user: req.session.user, error: 'La fecha de expiración debe tener formato MM/AA o MM/YYYY y contener sólo números.' });
+        }
+
+        if (isNaN(expMonth) || expMonth < 1 || expMonth > 12) {
+          return res.render('purchase-movie', { title: `Comprar ${moviePlain.title}`, movie: {
+            id: moviePlain.id, title: moviePlain.title, price: purchaseAmount, poster_image: moviePlain.poster_image, release_year: moviePlain.release_year, genre: moviePlain.genre
+          }, user: req.session.user, error: 'Mes de expiración inválido.' });
+        }
+
+        const now = new Date();
+        const expiryDate = new Date(expYear, expMonth - 1 + 1, 0); // último día del mes
+        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        if (expiryDate < currentMonthStart) {
+          return res.render('purchase-movie', { title: `Comprar ${moviePlain.title}`, movie: {
+            id: moviePlain.id, title: moviePlain.title, price: purchaseAmount, poster_image: moviePlain.poster_image, release_year: moviePlain.release_year, genre: moviePlain.genre
+          }, user: req.session.user, error: 'La tarjeta está vencida.' });
+        }
+
+        if (expYear > now.getFullYear() + 30) {
+          return res.render('purchase-movie', { title: `Comprar ${moviePlain.title}`, movie: {
+            id: moviePlain.id, title: moviePlain.title, price: purchaseAmount, poster_image: moviePlain.poster_image, release_year: moviePlain.release_year, genre: moviePlain.genre
+          }, user: req.session.user, error: 'Año de expiración poco realista.' });
+        }
+      }
+
       // Usar el modelo Purchase directamente
       const { Purchase } = require('../models');
       

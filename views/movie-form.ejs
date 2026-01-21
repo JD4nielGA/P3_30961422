@@ -340,7 +340,7 @@
                            class="form-control"
                            step="0.01"
                            min="0"
-                           value="<%= typeof movie !== 'undefined' && movie && typeof movie.price !== 'undefined' && movie.price !== null ? Number(movie.price).toFixed(2) : '' %>"
+                        value="<%= (typeof product !== 'undefined' && product && product.price != null) ? Number(product.price).toFixed(2) : (typeof movie !== 'undefined' && movie && typeof movie.price !== 'undefined' && movie.price !== null ? Number(movie.price).toFixed(2) : '') %>"
                            placeholder="Ej: 3.99">
                     <div class="form-text">Precio que se usará para la compra de esta película. Dejar vacío para usar el precio por defecto.</div>
                 </div>
@@ -396,10 +396,22 @@
                         <img id="imagePreview" src="" class="image-preview">
                     </div>
 
+                    <!-- Opción 2: Usar URL de imagen (opcional) -->
+                    <div class="form-group">
+                        <label for="poster_url">O usar URL de la imagen (opcional)</label>
+                        <input type="text"
+                               id="poster_url"
+                               name="poster_url"
+                               class="form-control"
+                               placeholder="https://example.com/mi-poster.jpg"
+                               value="<%= typeof movie !== 'undefined' && movie && movie.poster_url ? movie.poster_url : '' %>">
+                        <div class="form-text">Proporciona una URL pública si no deseas subir un archivo.</div>
+                    </div>
+
 
 
                     <!-- Imagen actual (solo en edición) -->
-                    <% if (typeof movie !== 'undefined' && movie && movie.poster_url && movie.poster_url !== '/images/default-poster.jpg') { %>
+                        <% if (typeof movie !== 'undefined' && movie && movie.poster_url && movie.poster_url !== '/images/default-poster.jpg') { %>
                         <div class="form-group">
                             <label>Imagen Actual:</label>
                             <img src="<%= movie.poster_url %>" 

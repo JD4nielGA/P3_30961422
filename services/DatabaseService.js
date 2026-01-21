@@ -1015,6 +1015,19 @@ class DatabaseService {
 
       await this._handleProductAssociation(id, movieData, true);
 
+      // Sincronizar título en reseñas que guarden el título en caché
+      try {
+        if (updatedMovie && updatedMovie.title) {
+          await this.Review.update(
+            { movie_title: updatedMovie.title },
+            { where: { movie_id: id } }
+          );
+          console.log(`✅ Reseñas sincronizadas con nuevo título de película (ID: ${id})`);
+        }
+      } catch (syncErr) {
+        console.error('❌ Error sincronizando títulos de reseñas:', syncErr.message);
+      }
+
       return updatedMovie;
     } catch (error) {
       console.error('❌ Error en updateMovie:', error.message);

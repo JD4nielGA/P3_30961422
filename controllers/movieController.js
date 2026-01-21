@@ -204,8 +204,9 @@ static async createMovie(req, res) {
 
       console.log(`🎬 Cargando película para editar ID: ${movieId}`);
       
-      const movie = await DatabaseService.getMovieById(movieId);
-      
+      const movieResult = await DatabaseService.getMovieById(movieId);
+      const movie = movieResult ? movieResult.movie : null;
+
       if (!movie) {
         return res.redirect('/admin?error=Película no encontrada');
       }
@@ -215,9 +216,9 @@ static async createMovie(req, res) {
         id: movie.id,
         title: movie.title,
         year: movie.release_year,
-        genre: movie.genre || '', // ¡AGREGAR ESTE CAMPO!
+        genre: movie.genre || '',
         description: movie.description,
-        type: movie.type || 'movie', // ¡AGREGAR ESTE CAMPO!
+        type: movie.type || 'movie',
         poster_url: movie.poster_image,
         is_active: movie.is_active
       };
@@ -266,7 +267,8 @@ static async createMovie(req, res) {
       console.log(`🎬 Actualizando película ID: ${movieId}`, { title, year, genre, price });
 
       // Verificar que la película existe
-      const existingMovie = await DatabaseService.getMovieById(movieId);
+      const existingMovieResult = await DatabaseService.getMovieById(movieId);
+      const existingMovie = existingMovieResult ? existingMovieResult.movie : null;
       if (!existingMovie) {
         if (req.file) {
           fs.unlinkSync(req.file.path);
@@ -376,7 +378,8 @@ static async createMovie(req, res) {
       }
 
       // Verificar que la película existe
-      const movie = await DatabaseService.getMovieById(movieId);
+      const movieResult = await DatabaseService.getMovieById(movieId);
+      const movie = movieResult ? movieResult.movie : null;
       if (!movie) {
         return res.redirect('/admin?error=Película no encontrada');
       }
@@ -405,7 +408,8 @@ static async createMovie(req, res) {
       }
 
       // Verificar que la película existe
-      const movie = await DatabaseService.getMovieById(movieId);
+      const movieResult = await DatabaseService.getMovieById(movieId);
+      const movie = movieResult ? movieResult.movie : null;
       if (!movie) {
         return res.redirect('/admin?error=Película no encontrada');
       }

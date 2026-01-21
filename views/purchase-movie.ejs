@@ -234,14 +234,7 @@
 <body>
     <div class="purchase-container">
         <div class="purchase-card">
-            <!-- DEBUG INFO - Puedes comentar o eliminar esta sección después -->
-            <div class="debug-info">
-                <strong>DEBUG INFO:</strong><br>
-                Título: <span id="debugTitle"><%= movie.title || 'No disponible' %></span><br>
-                Imagen URL: <span id="debugImage"><%= movie.poster_image || 'No disponible' %></span><br>
-                Precio: <span id="debugPrice">€<%= movie.price ? parseFloat(movie.price).toFixed(2) : '3.99' %></span><br>
-                Año: <span id="debugYear"><%= movie.release_year || 'No disponible' %></span>
-            </div>
+            <!-- Removed debug-info to avoid exposing internals to users -->
 
             <h1 style="text-align: center; color: #2d3748; margin-bottom: 30px;">
                 <i class="fas fa-shopping-cart"></i> Confirmar Compra
@@ -344,8 +337,8 @@
                 <div id="cardForm" style="display: block;">
                     <div class="form-group">
                         <label for="card_number">Número de Tarjeta</label>
-                        <input type="text" id="card_number" name="card_number" class="form-control" 
-                               placeholder="1234 5678 9012 3456" maxlength="19"
+                           <input type="text" id="card_number" name="card_number" class="form-control" 
+                               placeholder="1234567890123456" maxlength="19" inputmode="numeric" pattern="[0-9]*"
                                oninput="formatCardNumber(this)">
                     </div>
 
@@ -353,15 +346,15 @@
                         <div class="form-group">
                             <label for="expiry_date">Fecha de Expiración</label>
                             <input type="text" id="expiry_date" name="expiry_date" class="form-control" 
-                                   placeholder="MM/AA" maxlength="5"
-                                   oninput="formatExpiryDate(this)">
+                                placeholder="MM/YY or MM/YYYY" maxlength="7" inputmode="numeric" pattern="[0-9\/\-]*"
+                                oninput="formatExpiryDate(this)" onblur="normalizeExpiry(this)">
                         </div>
 
                         <div class="form-group">
                             <label for="cvv">CVV</label>
                             <input type="text" id="cvv" name="cvv" class="form-control" 
-                                   placeholder="123" maxlength="3"
-                                   oninput="formatCVV(this)">
+                                placeholder="123" maxlength="4" inputmode="numeric" pattern="[0-9]*"
+                                oninput="formatCVV(this)">
                         </div>
                     </div>
 
@@ -411,18 +404,9 @@
     </div>
 
     <script>
-        // ============ DEBUG EN CONSOLA ============
-        console.log('=== PÁGINA DE COMPRA - DEBUG ===');
-        console.log('Datos de película recibidos:', <%= JSON.stringify(movie) %>);
-        console.log('URL de imagen final:', '<%= imageUrl %>');
-        console.log('Título:', '<%= movie.title %>');
-        console.log('Precio:', '<%= movie.price %>');
-        console.log('================================');
-        
         // ============ MANEJO DE IMÁGENES ============
         function handleImageError(img) {
-            console.log('❌ Error cargando imagen:', img.src);
-            console.log('🔄 Cambiando a imagen por defecto');
+            // silently fallback to default image
             
             const defaultImage = img.getAttribute('data-default') || '/images/default-poster.jpg';
             img.src = defaultImage;
@@ -430,9 +414,7 @@
             
             // Si aún falla, usar placeholder de internet
             img.onerror = function() {
-                console.log('❌ Fallback también falló, usando placeholder online');
-                this.src = 'https://via.placeholder.com/200x300/667eea/ffffff?text=' + 
-                          encodeURIComponent('<%= movie.title || "Película" %>');
+                this.src = 'https://via.placeholder.com/200x300/667eea/ffffff?text=' + encodeURIComponent('<%= movie.title || "Película" %>');
             };
         }
         
@@ -440,9 +422,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             const img = document.getElementById('moviePoster');
             
-            img.onload = function() {
-                console.log('✅ Imagen cargada exitosamente:', this.src);
-            };
+            img.onload = function() { /* no debug logs */ };
             
             // Verificar si la imagen se carga después de 1 segundo
             setTimeout(function() {
@@ -484,21 +464,55 @@
         }
 
         function formatCardNumber(input) {
-            let value = input.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-            let formattedValue = value.match(/.{1,4}/g)?.join(' ');
-            input.value = formattedValue || value;
-        }
-
-        function formatExpiryDate(input) {
+            // Mantener sólo dígitos (no espacios)
             let value = input.value.replace(/\D/g, '');
-            if (value.length >= 2) {
-                value = value.substring(0, 2) + '/' + value.substring(2, 4);
-            }
             input.value = value;
         }
 
+        function formatExpiryDate(input) {
+            // Allow digits and insert slash after month: support MMYY or MMYYYY entry
+            let v = input.value.replace(/[^0-9]/g, '');
+            if (v.length <= 2) {
+                input.value = v;
+                return;
+            }
+            if (v.length <= 4) {
+                // MMYY -> format MM/YY
+                input.value = v.substring(0,2) + '/' + v.substring(2);
+                return;
+            }
+            // MMYYYY -> format MM/YYYY
+            input.value = v.substring(0,2) + '/' + v.substring(2,6);
+        }
+
+        function normalizeExpiry(input) {
+            // On blur, normalize common formats to MM/YYYY
+            let raw = input.value.trim();
+            if (!raw) return;
+            const digits = raw.replace(/\D/g, '');
+            let mm = '';
+            let yyyy = '';
+            if (digits.length === 3) { // MYY
+                mm = '0' + digits.substring(0,1);
+                yyyy = '20' + digits.substring(1,3);
+            } else if (digits.length === 4) { // MMYY
+                mm = digits.substring(0,2);
+                yyyy = '20' + digits.substring(2,4);
+            } else if (digits.length === 5) { // MYYYY
+                mm = '0' + digits.substring(0,1);
+                yyyy = digits.substring(1,5);
+            } else if (digits.length >= 6) { // MMYYYY
+                mm = digits.substring(0,2);
+                yyyy = digits.substring(2,6);
+            } else {
+                // leave as-is
+                return;
+            }
+            input.value = mm + '/' + yyyy;
+        }
+
         function formatCVV(input) {
-            input.value = input.value.replace(/\D/g, '').substring(0, 3);
+            input.value = input.value.replace(/\D/g, '').substring(0, 4);
         }
 
         // Manejar envío del formulario con validación
@@ -531,17 +545,17 @@
                     return;
                 }
                 
-                // Validación de fecha (MM/AA)
-                if (!expiryDate.match(/^\d{2}\/\d{2}$/)) {
+                // Validación de fecha (MM/AA o MM/AAAA)
+                if (!expiryDate.match(/^\d{2}\/(\d{2}|\d{4})$/)) {
                     e.preventDefault();
-                    showError('Formato de fecha inválido. Usa MM/AA');
+                    showError('Formato de fecha inválido. Usa MM/AA o MM/AAAA (ej: 07/26 o 07/2026)');
                     return;
                 }
-                
-                // Validación de CVV (3 dígitos)
-                if (cvv.length !== 3) {
+
+                // Validación de CVV (3 o 4 dígitos) - Amex usa 4
+                if (!(cvv.length === 3 || cvv.length === 4)) {
                     e.preventDefault();
-                    showError('El CVV debe tener 3 dígitos');
+                    showError('El CVV debe tener 3 o 4 dígitos');
                     return;
                 }
             }
@@ -585,9 +599,11 @@
         
         // ============ INICIALIZACIÓN ============
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('Página de compra cargada');
-            console.log('ID de película:', '<%= movie.id %>');
-            console.log('Usuario:', '<%= user ? user.username : "No logueado" %>');
+            // ensure expiry placeholder clarity
+            const expiry = document.getElementById('expiry_date');
+            if (expiry && (!expiry.value || expiry.value.trim() === '')) {
+                expiry.placeholder = 'MM/YY or MM/YYYY';
+            }
         });
     </script>
 </body>
