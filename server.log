@@ -1,0 +1,228 @@
+🚀 Iniciando CineCríticas con Swagger...
+=== CINECRITICAS SWAGGER ===
+Node version: v19.1.0
+NODE_ENV: development
+PORT: 3000
+=== INICIANDO ===
+🔧 Development mode with dotenv
+📁 Ruta de base de datos SQLite: C:\Users\estudiante\Desktop\proyect\cinecriticas.db
+🔄 Inicializando modelos Sequelize...
+🔄 Configurando relaciones de modelos...
+✅ Relaciones de modelos definidas correctamente
+✅ DatabaseService construido - Modelos cargados
+🔐 JWT Configurado
+🔄 Cargando configuración Swagger...
+📊 Especificaciones Swagger cargadas:
+   - Paths encontrados: 23
+📚 Swagger UI disponible en: http://localhost:3000/api-docs
+
+🔍 CARGANDO CONTROLADORES...
+✅ AuthController cargado
+✅ UserController cargado
+✅ ReviewController cargado
+✅ AdminController cargado
+✅ MovieController cargado
+✅ CategoryController cargado
+✅ TagController cargado
+✅ ProductController cargado
+✅ ProfileController cargado
+✅ OrderController cargado
+🎯 Todos los controladores cargados con manejo de errores
+
+🔍 VERIFICACIÓN DETALLADA DE CONTROLADORES:
+
+AuthController:
+  ✅ Métodos: showLogin, login, showRegister, register, logout, logoutAPI, renderLoginError, renderRegisterError, validateRegistrationData, handleSuccessfulLogin, handleAuthError
+
+UserController:
+  ✅ Métodos: showUserReviews, getProfile, updateProfile, listUsers
+
+ReviewController:
+  ✅ Métodos: showNewReviewForm, showNewUserReviewForm, createUserReview, showMyReviews, getAllReviews, getReviewById, createReviewAPI, createReviewAdmin, showEditReviewForm, updateReviewAdmin, updateReview, deleteReview, toggleFeatured, deleteReviewAdmin, showReview
+
+AdminController:
+  ✅ Métodos: showDashboard, showNewUserForm, showEditUserForm, createUser, updateUser, deleteUser
+
+MovieController:
+  ✅ Métodos: showNewMovieForm, createMovie, showEditMovieForm, updateMovie, deleteMovie, activateMovie, _getProductForMovie, _handleProductAssociation, _deleteProductAssociation
+
+CategoryController:
+  ✅ Métodos: list, create, getById, update, remove
+
+TagController:
+  ✅ Métodos: list, create, getById, update, remove
+
+ProductController:
+  ✅ Métodos: create, getById, update, remove, listPublic, showPublic
+
+ProfileController:
+  ✅ Métodos: showProfile, updateProfile, purchaseHistory, myReviews, membership, purchaseMembership, getProfileStats, getProfileStatsPublic, checkMembershipStatus, updateProfileTemporary
+
+OrderController:
+  ✅ Métodos: createOrderAPI, listOrdersAPI, getOrderAPI
+🚀 INICIANDO SERVIDOR CINECRÍTICAS...
+
+1. 🔄 INICIALIZANDO BASE DE DATOS...
+🔄 Inicializando DatabaseService...
+🔄 Conectando a la base de datos SQLite...
+📦 Serving client build from /client/build
+✅ Conexión a SQLite establecida
+🔄 Sincronizando modelos con la base de datos...
+✅ Todos los modelos sincronizados correctamente
+✅ DatabaseService inicializado correctamente
+✅ DatabaseService inicializado correctamente
+
+2. 🔥 SINCRONIZANDO MODELOS AUTOMÁTICAMENTE...
+
+3. 🎫 VERIFICANDO COLUMNAS DE MEMBRESÍA...
+✅ Columnas de membresía verificadas
+
+4. 👥 CREANDO USUARIOS DE PRUEBA...
+🔍 Verificando usuarios de prueba...
+✅ Usuario admin ya existe
+✅ Usuario normal ya existe
+🔐 Credenciales configuradas:
+   admin / admin123
+   usuario / password123
+
+🔐 ESTADO DE USUARIOS DE PRUEBA:
+   👑 ADMIN: No creado
+   👤 USUARIO: No creado
+
+5. 🌐 INICIANDO SERVIDOR WEB...
+🎬 Iniciando servidor en puerto: 3000
+
+🎬 SERVVIDOR ACTIVO EN PUERTO: 3000
+✅ ¡CineCríticas está listo para usar!
+
+🔗 ACCESOS PRINCIPALES:
+   🌐 Aplicación:      http://localhost:3000
+   📚 Documentación:   http://localhost:3000/api-docs
+   🔐 Health Check:    http://localhost:3000/health
+   🧪 Test API:        http://localhost:3000/api/test
+
+🛒 EJEMPLO DE COMPRA:
+   http://localhost:3000/purchase-movie?movie=Avatar&price=3.99
+
+💡 CREDENCIALES DE PRUEBA:
+   👑 ADMINISTRADOR:   admin / admin123
+   👤 USUARIO:         usuario / password123
+
+🔐 RUTAS DE PERFIL:
+   👤 Perfil web:          http://localhost:3000/user/profile
+   🔄 Actualizar sesión:   PUT http://localhost:3000/api/user/profile/session
+   🔧 Actualizar directo:  PUT http://localhost:3000/api/user/profile/direct
+   🐛 Debug usuarios:      http://localhost:3000/api/debug/users
+
+🔧 MANTENIMIENTO:
+   🔄 Reparar BD (npm):    npm run repair-db
+   🔧 Reparar BD (web):    http://localhost:3000/api/system/repair-database
+👤 Creando usuario: smoke_user_1769533180
+✅ Usuario creado: smoke_user_1769533180
+🏠 Cargando página de inicio...
+👤 Estado de sesión: { hasSession: true, hasUser: false, userId: 'No user' }
+🔍 Verificando asociaciones de Review...
+✅ Asociación Review -> User funciona correctamente
+📝 Review sample: {
+  id: 1,
+  title: 'buena',
+  hasUser: true,
+  username: 'usuario',
+  userRole: 'user'
+}
+⭐ Obteniendo reseñas destacadas para home...
+✅ 0 reseñas destacadas encontradas
+📝 Obteniendo reseñas recientes para home...
+✅ 2 reseñas recientes encontradas
+🎬 Películas cargadas para home: 2
+📊 Reseñas cargadas: { destacadas: 0, total: 2 }
+🔐 Intentando login: smoke_user_1769533180
+🔍 Buscando usuario por username o email: smoke_user_1769533180
+✅ Usuario smoke_user_1769533180 encontrado: true
+✅ Usuario encontrado: smoke_user_1769533180
+👤 Creando usuario: smoke_user_1769533234
+✅ Usuario creado: smoke_user_1769533234
+🏠 Cargando página de inicio...
+👤 Estado de sesión: { hasSession: true, hasUser: false, userId: 'No user' }
+🔍 Verificando asociaciones de Review...
+✅ Asociación Review -> User funciona correctamente
+📝 Review sample: {
+  id: 1,
+  title: 'buena',
+  hasUser: true,
+  username: 'usuario',
+  userRole: 'user'
+}
+⭐ Obteniendo reseñas destacadas para home...
+✅ 0 reseñas destacadas encontradas
+📝 Obteniendo reseñas recientes para home...
+✅ 2 reseñas recientes encontradas
+🎬 Películas cargadas para home: 2
+📊 Reseñas cargadas: { destacadas: 0, total: 2 }
+🔐 Intentando login: smoke_user_1769533234
+🔍 Buscando usuario por username o email: smoke_user_1769533234
+✅ Usuario smoke_user_1769533234 encontrado: true
+✅ Usuario encontrado: smoke_user_1769533234
+👤 Creando usuario: smoke_user_1769533318
+✅ Usuario creado: smoke_user_1769533318
+🏠 Cargando página de inicio...
+👤 Estado de sesión: { hasSession: true, hasUser: false, userId: 'No user' }
+🔍 Verificando asociaciones de Review...
+✅ Asociación Review -> User funciona correctamente
+📝 Review sample: {
+  id: 1,
+  title: 'buena',
+  hasUser: true,
+  username: 'usuario',
+  userRole: 'user'
+}
+⭐ Obteniendo reseñas destacadas para home...
+✅ 0 reseñas destacadas encontradas
+📝 Obteniendo reseñas recientes para home...
+✅ 2 reseñas recientes encontradas
+🎬 Películas cargadas para home: 2
+📊 Reseñas cargadas: { destacadas: 0, total: 2 }
+🔐 Intentando login: smoke_user_1769533318
+🔍 Buscando usuario por username o email: smoke_user_1769533318
+✅ Usuario smoke_user_1769533318 encontrado: true
+✅ Usuario encontrado: smoke_user_1769533318
+👤 Creando usuario: smoke_user_1769534933
+✅ Usuario creado: smoke_user_1769534933
+🏠 Cargando página de inicio...
+👤 Estado de sesión: { hasSession: true, hasUser: false, userId: 'No user' }
+🔍 Verificando asociaciones de Review...
+✅ Asociación Review -> User funciona correctamente
+📝 Review sample: {
+  id: 1,
+  title: 'buena',
+  hasUser: true,
+  username: 'usuario',
+  userRole: 'user'
+}
+⭐ Obteniendo reseñas destacadas para home...
+✅ 0 reseñas destacadas encontradas
+📝 Obteniendo reseñas recientes para home...
+✅ 2 reseñas recientes encontradas
+🎬 Películas cargadas para home: 2
+📊 Reseñas cargadas: { destacadas: 0, total: 2 }
+🔐 Intentando login: smoke_user_1769534933
+🔍 Buscando usuario por username o email: smoke_user_1769534933
+✅ Usuario smoke_user_1769534933 encontrado: true
+✅ Usuario encontrado: smoke_user_1769534933
+🏠 Cargando página de inicio...
+👤 Estado de sesión: { hasSession: true, hasUser: true, userId: 1 }
+🔍 Verificando asociaciones de Review...
+✅ Asociación Review -> User funciona correctamente
+📝 Review sample: {
+  id: 1,
+  title: 'buena',
+  hasUser: true,
+  username: 'usuario',
+  userRole: 'user'
+}
+⭐ Obteniendo reseñas destacadas para home...
+✅ 0 reseñas destacadas encontradas
+📝 Obteniendo reseñas recientes para home...
+✅ 2 reseñas recientes encontradas
+🎬 Películas cargadas para home: 2
+📊 Reseñas cargadas: { destacadas: 0, total: 2 }

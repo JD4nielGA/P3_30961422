@@ -1686,6 +1686,53 @@ const startServer = async () => {
 }
 
   // ================= MANEJO DE ERRORES (FINAL) =================
+  // ==== Serve client build (if present) and expose a JSON products endpoint ====
+  const clientBuildPath = path.join(__dirname, 'client', 'build');
+  if (fs.existsSync(clientBuildPath)) {
+    app.use(express.static(clientBuildPath));
+    app.get('/*', (req, res, next) => {
+      if (req.path.startsWith('/api') || req.path.startsWith('/api-docs') || req.path.startsWith('/uploads')) return next();
+      res.sendFile(path.join(clientBuildPath, 'index.html'));
+    });
+    console.log('📦 Serving client build from /client/build');
+  }
+
+  // Public JSON endpoint for products for the SPA (supports basic query params client-side)
+  app.get('/api/public/products', async (req, res) => {
+    try {
+      await DatabaseService.ensureDatabase();
+      let products = [];
+      if (DatabaseService.Product) {
+        products = await DatabaseService.Product.findAll({ where: { is_active: true } });
+      }
+      // If no products exist, attempt to create simple product entries from movies (seed for SPA/testing)
+      if ((!products || products.length === 0) && DatabaseService.Movie && DatabaseService.Product) {
+        try {
+          const movies = await DatabaseService.getAllMovies();
+          for (const m of movies.slice(0, 6)) {
+            await DatabaseService.Product.create({
+              name: m.title || `Movie ${m.id}`,
+              price: m.price ? parseFloat(m.price) : 3.99,
+              description: m.description || '',
+              movie_id: m.id,
+              stock: 10,
+              is_active: true,
+              type: 'movie'
+            });
+          }
+          products = await DatabaseService.Product.findAll({ where: { is_active: true } });
+        } catch (seedErr) {
+          console.warn('No se pudieron crear productos desde movies:', seedErr.message);
+        }
+      }
+      const mapped = products.map(p => ({ id: p.id, name: p.name, price: p.price, stock: p.stock, description: p.description, image: p.image || null, category: p.category || null }));
+      res.json({ success: true, data: mapped });
+    } catch (error) {
+      console.error('Error /api/public/products:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   app.use((req, res) => {
     res.status(404).render('404', {
       title: 'Página No Encontrada - CineCríticas',

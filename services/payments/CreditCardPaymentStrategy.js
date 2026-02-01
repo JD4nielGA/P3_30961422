@@ -28,15 +28,18 @@ class CreditCardPaymentStrategy extends PaymentStrategy {
           let data = '';
           res.on('data', chunk => data += chunk);
           res.on('end', () => {
+            // Try to parse JSON, but accept raw text as fallback to avoid throwing on non-JSON responses
+            let parsed;
             try {
-              const parsed = JSON.parse(data || '{}');
-              if (res.statusCode >= 200 && res.statusCode < 300) {
-                resolve({ success: true, data: parsed });
-              } else {
-                resolve({ success: false, data: parsed });
-              }
+              parsed = data && data.length ? JSON.parse(data) : {};
             } catch (err) {
-              reject(err);
+              parsed = { raw: data };
+            }
+
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              resolve({ success: true, data: parsed });
+            } else {
+              resolve({ success: false, data: parsed, statusCode: res.statusCode });
             }
           });
         });

@@ -7,6 +7,8 @@
     "start": "node app.js",
     "dev": "nodemon app.js",
     "build": "echo 'No build step required'",
+    "build-client": "echo 'Static client in /client/build - no build step'",
+    "start:unified": "node app.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
