@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "build": "echo 'No build step required'",
-    "build-client": "echo 'Static client in /client/build - no build step'",
+    "build": "echo 'No root build step required'",
+    "client:build": "cd client && npm install --no-audit --no-fund && npm run build",
     "start:unified": "node app.js",
     "test": "jest",
     "test:watch": "jest --watch",

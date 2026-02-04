@@ -1705,6 +1705,7 @@ const startServer = async () => {
       if (DatabaseService.Product) {
         products = await DatabaseService.Product.findAll({ where: { is_active: true } });
       }
+
       // If no products exist, attempt to create simple product entries from movies (seed for SPA/testing)
       if ((!products || products.length === 0) && DatabaseService.Movie && DatabaseService.Product) {
         try {
@@ -1725,11 +1726,129 @@ const startServer = async () => {
           console.warn('No se pudieron crear productos desde movies:', seedErr.message);
         }
       }
-      const mapped = products.map(p => ({ id: p.id, name: p.name, price: p.price, stock: p.stock, description: p.description, image: p.image || null, category: p.category || null }));
-      res.json({ success: true, data: mapped });
+
+      // Apply server-side filters and pagination
+      const { search, category, price_min, price_max, page = 1, limit = 24 } = req.query;
+
+      let mapped = products.map(p => ({ id: p.id, name: p.name, price: p.price, stock: p.stock, description: p.description, image: p.image || null, category: p.category || null }));
+
+      if (search) {
+        const s = String(search).toLowerCase();
+        mapped = mapped.filter(p => (p.name || '').toLowerCase().includes(s) || (p.description||'').toLowerCase().includes(s));
+      }
+      if (category) {
+        mapped = mapped.filter(p => String(p.category||'').toLowerCase() === String(category).toLowerCase());
+      }
+      if (price_min !== undefined) {
+        const min = parseFloat(price_min) || 0;
+        mapped = mapped.filter(p => parseFloat(p.price || 0) >= min);
+      }
+      if (price_max !== undefined) {
+        const max = parseFloat(price_max) || Number.MAX_SAFE_INTEGER;
+        mapped = mapped.filter(p => parseFloat(p.price || 0) <= max);
+      }
+
+      // pagination
+      const pageNum = Math.max(1, parseInt(page, 10) || 1);
+      const lim = Math.max(1, Math.min(100, parseInt(limit, 10) || 24));
+      const start = (pageNum - 1) * lim;
+      const paged = mapped.slice(start, start + lim);
+
+      res.json({ success: true, data: paged, meta: { total: mapped.length, page: pageNum, limit: lim } });
     } catch (error) {
       console.error('Error /api/public/products:', error);
       res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // API endpoints for cart (JWT protected)
+  app.get('/api/carro', requireAuthAPI, async (req, res) => {
+    try {
+      const user = await DatabaseService.getUserById(req.user.id);
+      const cart = user && user.cart ? user.cart : [];
+      return res.json({ success: true, data: cart });
+    } catch (error) {
+      console.error('Error GET /api/carro:', error);
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post('/api/carro', requireAuthAPI, async (req, res) => {
+    try {
+      const cart = req.body && req.body.cart ? req.body.cart : [];
+      const updated = await DatabaseService.updateUser(req.user.id, { cart });
+      // Return the saved cart back to client
+      const saved = updated && typeof updated.toJSON === 'function' ? updated.toJSON() : updated;
+      return res.json({ success: true, data: saved.cart || [] });
+    } catch (error) {
+      console.error('Error POST /api/carro:', error);
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Rutas de carrito comentadas — funcionalidad de carrito eliminada
+  /*
+  // Session-based endpoints for server-rendered pages (protected by session)
+  app.get('/user/cart', requireAuth, async (req, res) => {
+    try {
+      const user = await DatabaseService.getUserById(req.session.user.id);
+      const cart = user && user.cart ? user.cart : [];
+      // If client expects HTML, render the cart page; otherwise return JSON (API-like)
+      if (req.accepts && req.accepts('html')) {
+        return res.render('user/cart', { title: 'Mi Carrito', user, cart, currentPath: '/user/cart' });
+      }
+      return res.json({ success: true, data: cart });
+    } catch (err) {
+      console.error('Error GET /user/cart:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/user/cart', requireAuth, async (req, res) => {
+    try {
+      const cart = req.body && req.body.cart ? req.body.cart : [];
+      const updated = await DatabaseService.updateUser(req.session.user.id, { cart });
+      // Sync session with updated user data (remove sensitive fields)
+      const userObj = updated && typeof updated.toJSON === 'function' ? updated.toJSON() : updated;
+      if (userObj && userObj.password_hash) delete userObj.password_hash;
+      // Ensure session reflects latest info
+      req.session.user = userObj;
+      console.log('✅ Carrito guardado para user:', req.session.user.id);
+      res.json({ success: true, cart: userObj.cart || [] });
+    } catch (err) {
+      console.error('Error POST /user/cart:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  */
+
+  // Rutas activas para el `carro` (basadas en sesión)
+  app.get('/user/carro', requireAuth, async (req, res) => {
+    try {
+      const user = await DatabaseService.getUserById(req.session.user.id);
+      const cart = user && user.cart ? user.cart : [];
+      if (req.accepts && req.accepts('html')) {
+        return res.render('user/carro', { title: 'Mi Carro', user, cart, currentPath: '/user/carro' });
+      }
+      return res.json({ success: true, data: cart });
+    } catch (err) {
+      console.error('Error GET /user/carro:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/user/carro', requireAuth, async (req, res) => {
+    try {
+      const cart = (req.body && (req.body.carro || req.body.cart)) ? (req.body.carro || req.body.cart) : [];
+      const updated = await DatabaseService.updateUser(req.session.user.id, { cart });
+      const userObj = updated && typeof updated.toJSON === 'function' ? updated.toJSON() : updated;
+      if (userObj && userObj.password_hash) delete userObj.password_hash;
+      req.session.user = userObj;
+      console.log('✅ Carro guardado para user:', req.session.user.id);
+      res.json({ success: true, cart: userObj.cart || [] });
+    } catch (err) {
+      console.error('Error POST /user/carro:', err);
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 

@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Mi Carrito - CineCríticas</title>
+    <style>
+        /* Reset y estilos base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* Contenedor principal */
+        .user-container {
+            display: flex;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+            min-height: 80vh;
+        }
+
+        /* Sidebar */
+        .user-sidebar {
+            width: 250px;
+            background: #2c3e50;
+            color: white;
+            padding: 30px 20px;
+        }
+
+        .user-sidebar h3 {
+            color: #ecf0f1;
+            margin-bottom: 30px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #34495e;
+            padding-bottom: 10px;
+        }
+
+        .user-menu {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-menu a {
+            color: #bdc3c7;
+            text-decoration: none;
+            padding: 12px 15px;
+            margin: 5px 0;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .user-menu a:hover {
+            background: #34495e;
+            color: white;
+        }
+
+        .user-menu a.active {
+            background: #3498db;
+            color: white;
+        }
+
+        /* Contenido principal */
+        .user-content {
+            flex: 1;
+            padding: 40px;
+            background: #f8f9fa;
+        }
+
+        .user-content h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 2.2em;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        /* Tarjeta del carrito */
+        .profile-card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        /* Mensajes de estado */
+        .placeholder-text {
+            text-align: center;
+            padding: 40px 20px;
+            color: #718096;
+            font-size: 1.1em;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #c3e6cb;
+            margin-bottom: 20px;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #f5c6cb;
+            margin-bottom: 20px;
+        }
+
+        /* Lista del carrito */
+        .carro-list {
+            margin-top: 20px;
+        }
+
+        .carro-item {
+            padding: 20px;
+            border-bottom: 2px solid #f1f1f1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            background: #f9f9f9;
+        }
+
+        .carro-item:hover {
+            background: #f0f7ff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.1);
+        }
+
+        .carro-item .meta {
+            flex: 1;
+        }
+
+        .cart-item .meta strong {
+            color: #2c3e50;
+            font-size: 1.1em;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .cart-item .meta div {
+            color: #666;
+            font-size: 0.95em;
+            line-height: 1.4;
+        }
+
+        /* Controles de cantidad */
+        .carro-qty {
+            width: 80px;
+            padding: 10px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            font-size: 16px;
+            text-align: center;
+            transition: border-color 0.3s ease;
+        }
+
+        .cart-qty:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        /* Acciones del carrito */
+        .carro-actions {
+            margin-left: 15px;
+        }
+
+        .btn-remove {
+            background: #e53e3e;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-size: 0.9em;
+        }
+
+        .btn-remove:hover {
+            background: #c53030;
+            transform: scale(1.05);
+        }
+
+        /* Footer del carrito */
+        .carro-footer {
+            text-align: right;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+        }
+
+        .carro-footer > div {
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            color: #2c3e50;
+        }
+
+        .carro-total {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        /* Botones principales */
+        .btn-primary {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 14px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+        }
+
+        .btn-primary:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: #718096;
+            color: white;
+            padding: 14px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            border: none;
+            margin-left: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #4a5568;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(113, 128, 150, 0.3);
+        }
+
+        /* Enlace "Seguir comprando" */
+        a[href="/"] {
+            display: inline-block;
+            margin-top: 15px;
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s ease;
+        }
+
+        a[href="/"]:hover {
+            color: #2980b9;
+            text-decoration: underline;
+        }
+
+        /* Precios */
+        .item-price {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 1.1em;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .user-container {
+                flex-direction: column;
+                border-radius: 12px;
+            }
+            
+            .user-sidebar {
+                width: 100%;
+                padding: 20px;
+            }
+            
+            .user-content {
+                padding: 20px;
+            }
+            
+            .cart-item {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 15px;
+            }
+            
+            .cart-item > div:last-child {
+                width: 100%;
+                text-align: left;
+                margin-top: 15px;
+            }
+            
+            .cart-qty {
+                width: 100px;
+            }
+            
+            .cart-footer {
+                text-align: center;
+            }
+            
+            .cart-footer .btn-secondary {
+                margin-left: 0;
+                margin-top: 10px;
+                display: block;
+                width: 100%;
+            }
+            
+            .user-content h1 {
+                font-size: 1.8em;
+            }
+        }
+
+        /* Animaciones */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .carro-item {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Estado de carga */
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        /* Notificación de carrito vacío */
+        .empty-carro {
+            text-align: center;
+            padding: 50px 20px;
+        }
+
+        .empty-carro-icon {
+            font-size: 4em;
+            color: #cbd5e0;
+            margin-bottom: 20px;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="user-container">
+        <div class="user-sidebar">
+            <h3>Mi Cuenta</h3>
+            <nav class="user-menu">
+                <a href="/user/profile" class="<%= currentPath === '/user/profile' ? 'active' : '' %>">Perfil</a>
+                <a href="/user/my-reviews" class="<%= currentPath === '/user/my-reviews' ? 'active' : '' %>">Mis Reseñas</a>
+                <a href="/user/purchase-history" class="<%= currentPath === '/user/purchase-history' ? 'active' : '' %>">Historial de Compras</a>
+                <a href="/user/membership" class="<%= currentPath === '/user/membership' ? 'active' : '' %>">Membresías</a>
+                <a href="/user/carro" class="<%= currentPath === '/user/carro' ? 'active' : '' %>">
+                    Carro 
+                    <% if (user && user.cart && user.cart.length) { %>
+                        <span style="background:#e74c3c;color:white;padding:2px 8px;border-radius:12px;font-size:0.9em;">
+                            <%= user.cart.length %>
+                        </span>
+                    <% } %>
+                </a>
+            </nav>
+        </div>
+
+        <div class="user-content">
+            <h1>Tu Carro</h1>
+
+            <div class="profile-card">
+                <% if (user && user.cart && user.cart.length > 0) { %>
+                    <div id="messageContainer"></div>
+                    
+                    <div id="carroList" class="carro-list">
+                        <% user.cart.forEach(function(item, idx) { %>
+                            <div class="carro-item" data-idx="<%= idx %>">
+                                <div class="meta">
+                                    <div><strong><%= item.title || item.name || 'Ítem' %></strong></div>
+                                    <% if (item.description) { %>
+                                        <div style="color:#666;font-size:0.95em;margin-top:5px;">
+                                            <%= item.description %>
+                                        </div>
+                                    <% } %>
+                                </div>
+                                <div style="min-width:180px;text-align:right">
+                                    <div style="font-size:1.2em;margin-bottom:10px;">
+                                        €<span class="item-price"><%= (item.price?parseFloat(item.price):0).toFixed(2) %></span>
+                                    </div>
+                                    <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px">
+                                        <input class="carro-qty" type="number" min="1" max="99" 
+                                               value="<%= item.qty || item.quantity || 1 %>"
+                                               aria-label="Cantidad de <%= item.title || 'ítem' %>">
+                                        <div class="carro-actions">
+                                            <button class="btn-remove" 
+                                                    aria-label="Eliminar <%= item.title || 'este ítem' %> del carro">
+                                                Eliminar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        <% }); %>
+                    </div>
+
+                    <div class="carro-footer">
+                        <div>Subtotal: <span class="carro-total">€<span id="carroTotal">0.00</span></span></div>
+                        <div style="margin-top:20px">
+                            <button id="guardarCarro" class="btn-primary">💾 Guardar carro</button>
+                            <a href="/purchase/checkout" class="btn-secondary">💰 Proceder al pago</a>
+                        </div>
+                    </div>
+                <% } else { %>
+                    <div class="empty-carro">
+                        <span class="empty-carro-icon">🛒</span>
+                        <div class="placeholder-text">Tu carro está vacío.</div>
+                        <div style="margin-top:20px">
+                            <a href="/" class="btn-primary">🎬 Explorar películas</a>
+                        </div>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function(){
+            const carroList = document.getElementById('carroList');
+            const messageContainer = document.getElementById('messageContainer');
+            
+            function showMessage(message, type = 'success') {
+                if (messageContainer) {
+                    messageContainer.innerHTML = `<div class="${type}">${message}</div>`;
+                    setTimeout(() => {
+                        if (messageContainer.firstChild) {
+                            messageContainer.firstChild.style.opacity = '0';
+                            setTimeout(() => {
+                                messageContainer.innerHTML = '';
+                            }, 300);
+                        }
+                    }, 3000);
+                }
+            }
+
+            function calculateTotal() {
+                let total = 0;
+                if (carroList) {
+                    document.querySelectorAll('#carroList .carro-item').forEach(function(row){
+                        const price = parseFloat(row.querySelector('.item-price').textContent || '0') || 0;
+                        const qty = parseInt(row.querySelector('.carro-qty').value || '1') || 1;
+                        total += price * qty;
+                    });
+                }
+                const totalEl = document.getElementById('carroTotal');
+                if (totalEl) totalEl.textContent = total.toFixed(2);
+                return total;
+            }
+
+            function updateCartCounter(count) {
+                const cartCounter = document.querySelector('.user-menu a[href="/user/carro"] span');
+                if (cartCounter) {
+                    cartCounter.textContent = count;
+                }
+            }
+
+            if (carroList) {
+                // Calcular total inicial
+                calculateTotal();
+
+                // Evento para cambios en cantidad
+                carroList.addEventListener('input', function(e){
+                    if (e.target.classList.contains('carro-qty')) {
+                        const input = e.target;
+                        const value = parseInt(input.value);
+                        
+                        // Validar rango
+                        if (value < 1) input.value = 1;
+                        if (value > 99) input.value = 99;
+                        
+                        calculateTotal();
+                    }
+                });
+
+                // Evento para eliminar items
+                carroList.addEventListener('click', async function(e){
+                    if (e.target.classList.contains('btn-remove')) {
+                        const row = e.target.closest('.carro-item');
+                        if (!row) return;
+                        
+                        if (!confirm('¿Estás seguro de eliminar este artículo del carro?')) {
+                            return;
+                        }
+                        
+                        // Animación de eliminación
+                        row.style.opacity = '0.5';
+                        row.style.transform = 'translateX(20px)';
+                        
+                        setTimeout(() => {
+                            row.remove();
+                            calculateTotal();
+                            
+                            // Actualizar contador
+                            const remainingItems = document.querySelectorAll('#carroList .carro-item').length;
+                            updateCartCounter(remainingItems);
+                            
+                            showMessage('Artículo eliminado del carro', 'success');
+                            
+                            // Si no quedan items, recargar
+                            if (remainingItems === 0) {
+                                setTimeout(() => location.reload(), 1000);
+                            }
+                        }, 300);
+                    }
+                });
+
+                // Guardar carrito
+                const saveBtn = document.getElementById('guardarCarro');
+                if (saveBtn) {
+                    saveBtn.addEventListener('click', async function(){
+                        const btn = this;
+                        const originalText = btn.textContent;
+                        
+                        btn.disabled = true;
+                        btn.textContent = '💾 Guardando...';
+                        btn.classList.add('loading');
+                        
+                        const items = [];
+                        document.querySelectorAll('#carroList .carro-item').forEach(function(row){
+                            const title = row.querySelector('.meta strong').textContent.trim();
+                            const price = parseFloat(row.querySelector('.item-price').textContent || '0') || 0;
+                            const qty = parseInt(row.querySelector('.carro-qty').value || '1') || 1;
+                            items.push({ title, price, qty });
+                        });
+
+                        try {
+                            const res = await fetch('/user/carro', {
+                                method: 'POST',
+                                headers: { 
+                                    'Content-Type': 'application/json', 
+                                    'Accept': 'application/json' 
+                                },
+                                body: JSON.stringify({ carro: items })
+                            });
+                            
+                            const json = await res.json();
+                            if (json && json.success) {
+                                showMessage('✅ Carro guardado correctamente');
+                                setTimeout(() => {
+                                    location.reload();
+                                }, 1500);
+                            } else {
+                                showMessage('❌ Error al guardar el carro', 'error');
+                            }
+                        } catch (err) {
+                            console.error('Fetch error saving carro:', err);
+                            showMessage('❌ Error de conexión', 'error');
+                        } finally {
+                            btn.disabled = false;
+                            btn.textContent = originalText;
+                            btn.classList.remove('loading');
+                        }
+                    });
+                }
+            }
+            
+            // Actualizar contador inicial
+            if (carroList) {
+                const initialCount = document.querySelectorAll('#carroList .carro-item').length;
+                updateCartCounter(initialCount);
+            }
+        })();
+    </script>
+</body>
+</html>

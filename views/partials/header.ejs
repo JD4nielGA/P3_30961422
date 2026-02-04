@@ -19,6 +19,7 @@
                         <% if (locals.user.role === 'user') { %>
                             <li><a href="/user/dashboard" class="<%= title === 'Mi Dashboard' ? 'active' : '' %>">Mi Cuenta</a></li>
                             <li><a href="/user/reviews" class="<%= title === 'Escribir Crítica' ? 'active' : '' %>">Escribir Crítica</a></li>
+                            <!-- Enlace al carrito eliminado -->
                         <% } else if (locals.user.role === 'admin') { %>
                             <li><a href="/admin" class="<%= title === 'Panel de Administración' ? 'active' : '' %>">Admin</a></li>
                         <% } %>

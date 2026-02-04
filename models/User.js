@@ -42,6 +42,10 @@ module.exports = (sequelize) => {
       type: DataTypes.JSON,
       defaultValue: []
     },
+    cart: {
+      type: DataTypes.JSON,
+      defaultValue: []
+    },
     is_active: {
       type: DataTypes.BOOLEAN,
       defaultValue: true

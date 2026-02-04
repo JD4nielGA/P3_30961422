@@ -302,86 +302,113 @@
                 </div>
             </div>
 
-            <form id="purchaseForm" action="/purchase/process-movie" method="POST">
-                <input type="hidden" name="movie_id" value="<%= movie.id || '' %>">
-                <input type="hidden" name="movie_title" value="<%= movie.title || '' %>">
-                <input type="hidden" name="amount" value="<%= movie.price ? parseFloat(movie.price).toFixed(2) : '3.99' %>">
-                
-                <% if (typeof csrfToken !== 'undefined' && csrfToken) { %>
-                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                <% } %>
-
-                <div class="payment-methods">
-                    <h3 style="margin-bottom: 15px; color: #2d3748;">
-                        <i class="fas fa-credit-card"></i> Método de Pago
-                    </h3>
+            <% if (user) { %>
+                <form id="purchaseForm" action="/purchase/process-movie" method="POST">
+                    <input type="hidden" name="movie_id" value="<%= movie.id || '' %>">
+                    <input type="hidden" name="movie_title" value="<%= movie.title || '' %>">
+                    <input type="hidden" name="amount" value="<%= movie.price ? parseFloat(movie.price).toFixed(2) : '3.99' %>">
                     
-                    <div class="payment-option" onclick="selectPayment(this, 'card')">
-                        <input type="radio" name="payment_method" value="card" id="card" style="display: none;" checked>
-                        <label for="card" style="cursor: pointer; display: flex; align-items: center;">
-                            <i class="fas fa-credit-card payment-icon"></i>
-                            Tarjeta de Crédito/Débito
-                        </label>
-                    </div>
+                    <% if (typeof csrfToken !== 'undefined' && csrfToken) { %>
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <% } %>
 
-                    <div class="payment-option" onclick="selectPayment(this, 'paypal')">
-                        <input type="radio" name="payment_method" value="paypal" id="paypal" style="display: none;">
-                        <label for="paypal" style="cursor: pointer; display: flex; align-items: center;">
-                            <i class="fab fa-paypal payment-icon"></i>
-                            PayPal
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Formulario de tarjeta -->
-                <div id="cardForm" style="display: block;">
-                    <div class="form-group">
-                        <label for="card_number">Número de Tarjeta</label>
-                           <input type="text" id="card_number" name="card_number" class="form-control" 
-                               placeholder="1234567890123456" maxlength="19" inputmode="numeric" pattern="[0-9]*"
-                               oninput="formatCardNumber(this)">
-                    </div>
-
-                    <div class="grid-2">
-                        <div class="form-group">
-                            <label for="expiry_date">Fecha de Expiración</label>
-                            <input type="text" id="expiry_date" name="expiry_date" class="form-control" 
-                                placeholder="MM/YY or MM/YYYY" maxlength="7" inputmode="numeric" pattern="[0-9\/\-]*"
-                                oninput="formatExpiryDate(this)" onblur="normalizeExpiry(this)">
+                    <div class="payment-methods">
+                        <h3 style="margin-bottom: 15px; color: #2d3748;">
+                            <i class="fas fa-credit-card"></i> Método de Pago
+                        </h3>
+                        
+                        <div class="payment-option" onclick="selectPayment(this, 'card')">
+                            <input type="radio" name="payment_method" value="card" id="card" style="display: none;" checked>
+                            <label for="card" style="cursor: pointer; display: flex; align-items: center;">
+                                <i class="fas fa-credit-card payment-icon"></i>
+                                Tarjeta de Crédito/Débito
+                            </label>
                         </div>
 
-                        <div class="form-group">
-                            <label for="cvv">CVV</label>
-                            <input type="text" id="cvv" name="cvv" class="form-control" 
-                                placeholder="123" maxlength="4" inputmode="numeric" pattern="[0-9]*"
-                                oninput="formatCVV(this)">
+                        <div class="payment-option" onclick="selectPayment(this, 'paypal')">
+                            <input type="radio" name="payment_method" value="paypal" id="paypal" style="display: none;">
+                            <label for="paypal" style="cursor: pointer; display: flex; align-items: center;">
+                                <i class="fab fa-paypal payment-icon"></i>
+                                PayPal
+                            </label>
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="card_holder">Nombre del Titular</label>
-                        <input type="text" id="card_holder" name="card_holder" class="form-control" 
-                               placeholder="Como aparece en la tarjeta">
-                    </div>
-                </div>
+                    <!-- Formulario de tarjeta -->
+                    <div id="cardForm" style="display: block;">
+                        <div class="form-group">
+                            <label for="card_number">Número de Tarjeta</label>
+                               <input type="text" id="card_number" name="card_number" class="form-control" 
+                                   placeholder="1234567890123456" maxlength="19" inputmode="numeric" pattern="[0-9]*"
+                                   oninput="formatCardNumber(this)">
+                        </div>
 
-                <!-- Información de PayPal -->
-                <div id="paypalForm" style="display: none; text-align: center; padding: 20px;">
-                    <p style="margin-bottom: 15px; color: #4a5568;">
-                        Serás redirigido a PayPal para completar tu pago de forma segura.
-                    </p>
-                    <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin: 15px 0;">
-                        <i class="fab fa-paypal" style="font-size: 2.5em; color: #003087; margin-bottom: 10px;"></i>
-                        <p style="margin: 10px 0 0 0; color: #718096; font-weight: 500;">
-                            Pago seguro mediante PayPal
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label for="expiry_date">Fecha de Expiración</label>
+                                <input type="text" id="expiry_date" name="expiry_date" class="form-control" 
+                                    placeholder="MM/YY or MM/YYYY" maxlength="7" inputmode="numeric" pattern="[0-9\/\-]*"
+                                    oninput="formatExpiryDate(this)" onblur="normalizeExpiry(this)">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="cvv">CVV</label>
+                                <input type="text" id="cvv" name="cvv" class="form-control" 
+                                    placeholder="123" maxlength="4" inputmode="numeric" pattern="[0-9]*"
+                                    oninput="formatCVV(this)">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="card_holder">Nombre del Titular</label>
+                            <input type="text" id="card_holder" name="card_holder" class="form-control" 
+                                   placeholder="Como aparece en la tarjeta">
+                        </div>
+                    </div>
+
+                    <!-- Información de PayPal -->
+                    <div id="paypalForm" style="display: none; text-align: center; padding: 20px;">
+                        <p style="margin-bottom: 15px; color: #4a5568;">
+                            Serás redirigido a PayPal para completar tu pago de forma segura.
                         </p>
+                        <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin: 15px 0;">
+                            <i class="fab fa-paypal" style="font-size: 2.5em; color: #003087; margin-bottom: 10px;"></i>
+                            <p style="margin: 10px 0 0 0; color: #718096; font-weight: 500;">
+                                Pago seguro mediante PayPal
+                            </p>
+                        </div>
                     </div>
-                </div>
 
-                <button type="submit" class="btn-purchase" id="purchaseBtn">
-                    <i class="fas fa-lock"></i> Comprar por €<%= movie.price ? parseFloat(movie.price).toFixed(2) : '3.99' %>
-                </button>
-            </form>
+                    <button type="submit" class="btn-purchase" id="purchaseBtn">
+                        <i class="fas fa-lock"></i> Comprar por €<%= movie.price ? parseFloat(movie.price).toFixed(2) : '3.99' %>
+                    </button>
+                </form>
+            <% } else { %>
+                <div style="margin-top:20px; padding:15px; border-radius:8px; background:#fff7f0; color:#7f1d1d;">
+                    <strong>Debes iniciar sesión para comprar.</strong>
+                    <div style="margin-top:8px;"><a href="/login" style="color:#4299e1;">Iniciar sesión</a> o <a href="/register" style="color:#4299e1;">crear una cuenta</a>.</div>
+                </div>
+            <% } %>
+
+            <!-- Resumen rápido del carrito del usuario (si existe) -->
+            <div style="margin-top:18px;">
+                <h3>Resumen del Carrito</h3>
+                <% if (user && user.cart && user.cart.length > 0) { %>
+                    <div style="border:1px solid #eee; padding:10px; border-radius:6px; background:#fafafa;">
+                        <% user.cart.forEach(function(item) { %>
+                            <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #eee;">
+                                <div><strong><%= item.title || item.name || 'Ítem' %></strong><div style="font-size:0.85em;color:#666;">Cantidad: <%= item.qty || item.quantity || 1 %></div></div>
+                                <div>€<%= (item.price ? parseFloat(item.price) : 0).toFixed(2) %></div>
+                            </div>
+                        <% }); %>
+                        <% let cartTotal = (user.cart || []).reduce((s,i)=> s + ((i.price?parseFloat(i.price):0) * (i.qty||i.quantity||1)), 0); %>
+                        <div style="text-align:right; margin-top:8px;"><strong>Total: €<%= cartTotal.toFixed(2) %></strong></div>
+                            <div style="margin-top:8px; text-align:right;"><a href="/user/carro" style="color:#4299e1;">Ver carro completo</a></div>
+                    </div>
+                <% } else { %>
+                    <div class="placeholder-text">No tienes artículos en el carrito.</div>
+                <% } %>
+            </div>
 
             <div class="security-badges">
                 <p>
@@ -516,8 +543,10 @@
         }
 
         // Manejar envío del formulario con validación
-        document.getElementById('purchaseForm').addEventListener('submit', function(e) {
-            const submitBtn = document.getElementById('purchaseBtn');
+        const _purchaseForm = document.getElementById('purchaseForm');
+        if (_purchaseForm) {
+            _purchaseForm.addEventListener('submit', function(e) {
+                const submitBtn = document.getElementById('purchaseBtn');
             
             if (!selectedPaymentMethod) {
                 e.preventDefault();
@@ -567,6 +596,7 @@
             // Continuar con el envío
             return true;
         });
+        }
 
         function showError(message) {
             // Remover mensajes de error anteriores
