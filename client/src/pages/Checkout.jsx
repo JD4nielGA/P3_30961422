@@ -4,54 +4,41 @@ import api from '../api'
 import { useNavigate } from 'react-router-dom'
 
 export default function Checkout(){
-  const { items, total, clear } = useContext(CartContext)
+  const { items, clear } = useContext(CartContext)
   const [processing, setProcessing] = useState(false)
   const nav = useNavigate()
+  const total = items.reduce((s,i)=> s + (i.price||0)*(i.qty||1), 0)
 
-  const [cardNumber, setCardNumber] = useState('4242424242424242')
-  const [expiry, setExpiry] = useState('12/26')
-  const [cvv, setCvv] = useState('123')
-  const [holder, setHolder] = useState('Cliente Test')
-
-  const doPurchase = async () => {
+  const submit = async (e) => {
+    e.preventDefault()
     setProcessing(true)
     try {
-      const payload = {
-        items: items.map(i=>({ productId: i.id, quantity: i.qty })),
-        paymentMethod: 'card',
-        paymentDetails: { card_number: cardNumber, expiry_date: expiry, cvv, card_holder: holder }
-      }
-      const res = await api.createOrder(payload)
-      if (res && res.success) {
-        clear();
-        nav('/orders')
-      } else if (res && !res.success) {
-        alert('Error procesando la orden: ' + (res.error || JSON.stringify(res)))
-      } else {
-        alert('Error en la orden: ' + JSON.stringify(res))
-      }
-    } catch (err) {
-      alert('Error procesando pago')
-    }
+      const res = await api.createOrder({ items, amount: total })
+      if (res && res.success) { clear(); nav('/orders') } else alert(res.error || 'Error procesando pago')
+    } catch (err) { console.error(err); alert('Error de conexión') }
     setProcessing(false)
   }
 
+  if (!items || items.length===0) return <div style={{maxWidth:900,margin:'12px auto'}}>No hay items en el carrito. <a href="/catalog">Volver</a></div>
+
   return (
-    <div>
+    <div style={{maxWidth:900,margin:'12px auto'}}>
       <h2>Checkout</h2>
-      <div>Total: ${total().toFixed(2)}</div>
-
-      <div style={{marginTop:12}}>
-        <h4>Datos de pago (simulados)</h4>
-        <input placeholder="Titular" value={holder} onChange={e=>setHolder(e.target.value)} />
-        <input placeholder="Número de tarjeta" value={cardNumber} onChange={e=>setCardNumber(e.target.value)} />
-        <input placeholder="Expiración MM/AA" value={expiry} onChange={e=>setExpiry(e.target.value)} />
-        <input placeholder="CVV" value={cvv} onChange={e=>setCvv(e.target.value)} />
-      </div>
-
-      <div style={{marginTop:12}}>
-        <button onClick={doPurchase} disabled={processing}>{processing? 'Procesando...':'Pagar ahora'}</button>
-      </div>
+      <div style={{marginBottom:12}}>Total a pagar: €{total.toFixed(2)}</div>
+      <form onSubmit={submit}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+          <input name="card_number" placeholder="Número de tarjeta" required />
+          <input name="expiry_date" placeholder="MM/YY" required />
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:8}}>
+          <input name="cvv" placeholder="CVV" required />
+          <input name="card_holder" placeholder="Titular" required />
+        </div>
+        <div style={{marginTop:12}}>
+          <button type="submit" disabled={processing}>{processing? 'Procesando...':'Pagar €'+total.toFixed(2)}</button>
+        </div>
+      </form>
     </div>
   )
 }
+

@@ -1076,9 +1076,32 @@ app.get('/user/profile', requireAuth, async (req, res) => {
 });
 const purchaseRoutes = require('./routes/purchase');
 app.use('/', purchaseRoutes);
+// Montar rutas de usuario (incluye /user/cart)
+try {
+  app.use('/user', require('./routes/user'));
+} catch (err) {
+  console.error('No se pudo montar routes/user:', err);
+}
 app.get('/user/purchase-history', requireAuth, ProfileController.purchaseHistory);
 app.get('/user/my-reviews', requireAuth, ProfileController.myReviews);
 app.get('/user/membership', requireAuth, ProfileController.membership);
+
+// Ruta de depuración para renderizar `user/cart.ejs` sin autenticación
+app.get('/debug/cart', (req, res) => {
+  const sampleUser = {
+    id: 0,
+    username: 'demo_user',
+    cart: [
+      { title: 'Película Demo A', price: 3.99, qty: 2, description: 'Demo descripción A' },
+      { title: 'Serie Demo B', price: 5.50, qty: 1 }
+    ]
+  };
+  res.render('user/cart', {
+    title: 'Mi Carrito (debug)',
+    user: sampleUser,
+    currentPath: '/user/cart'
+  });
+});
 
 // ================= RUTAS DE PERFIL CON SESIÓN - VERSIÓN CORREGIDA =================
 app.put('/api/user/profile/session', requireAuth, async (req, res) => {
@@ -1761,97 +1784,7 @@ const startServer = async () => {
     }
   });
 
-  // API endpoints for cart (JWT protected)
-  app.get('/api/carro', requireAuthAPI, async (req, res) => {
-    try {
-      const user = await DatabaseService.getUserById(req.user.id);
-      const cart = user && user.cart ? user.cart : [];
-      return res.json({ success: true, data: cart });
-    } catch (error) {
-      console.error('Error GET /api/carro:', error);
-      return res.status(500).json({ success: false, error: error.message });
-    }
-  });
-
-  app.post('/api/carro', requireAuthAPI, async (req, res) => {
-    try {
-      const cart = req.body && req.body.cart ? req.body.cart : [];
-      const updated = await DatabaseService.updateUser(req.user.id, { cart });
-      // Return the saved cart back to client
-      const saved = updated && typeof updated.toJSON === 'function' ? updated.toJSON() : updated;
-      return res.json({ success: true, data: saved.cart || [] });
-    } catch (error) {
-      console.error('Error POST /api/carro:', error);
-      return res.status(500).json({ success: false, error: error.message });
-    }
-  });
-
-  // Rutas de carrito comentadas — funcionalidad de carrito eliminada
-  /*
-  // Session-based endpoints for server-rendered pages (protected by session)
-  app.get('/user/cart', requireAuth, async (req, res) => {
-    try {
-      const user = await DatabaseService.getUserById(req.session.user.id);
-      const cart = user && user.cart ? user.cart : [];
-      // If client expects HTML, render the cart page; otherwise return JSON (API-like)
-      if (req.accepts && req.accepts('html')) {
-        return res.render('user/cart', { title: 'Mi Carrito', user, cart, currentPath: '/user/cart' });
-      }
-      return res.json({ success: true, data: cart });
-    } catch (err) {
-      console.error('Error GET /user/cart:', err);
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
-  app.post('/user/cart', requireAuth, async (req, res) => {
-    try {
-      const cart = req.body && req.body.cart ? req.body.cart : [];
-      const updated = await DatabaseService.updateUser(req.session.user.id, { cart });
-      // Sync session with updated user data (remove sensitive fields)
-      const userObj = updated && typeof updated.toJSON === 'function' ? updated.toJSON() : updated;
-      if (userObj && userObj.password_hash) delete userObj.password_hash;
-      // Ensure session reflects latest info
-      req.session.user = userObj;
-      console.log('✅ Carrito guardado para user:', req.session.user.id);
-      res.json({ success: true, cart: userObj.cart || [] });
-    } catch (err) {
-      console.error('Error POST /user/cart:', err);
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-  */
-
-  // Rutas activas para el `carro` (basadas en sesión)
-  app.get('/user/carro', requireAuth, async (req, res) => {
-    try {
-      const user = await DatabaseService.getUserById(req.session.user.id);
-      const cart = user && user.cart ? user.cart : [];
-      if (req.accepts && req.accepts('html')) {
-        return res.render('user/carro', { title: 'Mi Carro', user, cart, currentPath: '/user/carro' });
-      }
-      return res.json({ success: true, data: cart });
-    } catch (err) {
-      console.error('Error GET /user/carro:', err);
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
-  app.post('/user/carro', requireAuth, async (req, res) => {
-    try {
-      const cart = (req.body && (req.body.carro || req.body.cart)) ? (req.body.carro || req.body.cart) : [];
-      const updated = await DatabaseService.updateUser(req.session.user.id, { cart });
-      const userObj = updated && typeof updated.toJSON === 'function' ? updated.toJSON() : updated;
-      if (userObj && userObj.password_hash) delete userObj.password_hash;
-      req.session.user = userObj;
-      console.log('✅ Carro guardado para user:', req.session.user.id);
-      res.json({ success: true, cart: userObj.cart || [] });
-    } catch (err) {
-      console.error('Error POST /user/carro:', err);
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
+  
   app.use((req, res) => {
     res.status(404).render('404', {
       title: 'Página No Encontrada - CineCríticas',

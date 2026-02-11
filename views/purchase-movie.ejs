@@ -390,25 +390,7 @@
                 </div>
             <% } %>
 
-            <!-- Resumen rápido del carrito del usuario (si existe) -->
-            <div style="margin-top:18px;">
-                <h3>Resumen del Carrito</h3>
-                <% if (user && user.cart && user.cart.length > 0) { %>
-                    <div style="border:1px solid #eee; padding:10px; border-radius:6px; background:#fafafa;">
-                        <% user.cart.forEach(function(item) { %>
-                            <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #eee;">
-                                <div><strong><%= item.title || item.name || 'Ítem' %></strong><div style="font-size:0.85em;color:#666;">Cantidad: <%= item.qty || item.quantity || 1 %></div></div>
-                                <div>€<%= (item.price ? parseFloat(item.price) : 0).toFixed(2) %></div>
-                            </div>
-                        <% }); %>
-                        <% let cartTotal = (user.cart || []).reduce((s,i)=> s + ((i.price?parseFloat(i.price):0) * (i.qty||i.quantity||1)), 0); %>
-                        <div style="text-align:right; margin-top:8px;"><strong>Total: €<%= cartTotal.toFixed(2) %></strong></div>
-                            <div style="margin-top:8px; text-align:right;"><a href="/user/carro" style="color:#4299e1;">Ver carro completo</a></div>
-                    </div>
-                <% } else { %>
-                    <div class="placeholder-text">No tienes artículos en el carrito.</div>
-                <% } %>
-            </div>
+            
 
             <div class="security-badges">
                 <p>

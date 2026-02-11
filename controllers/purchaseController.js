@@ -206,6 +206,107 @@ class PurchaseController {
   }
 
   /**
+   * Mostrar checkout para el carrito (varios ítems)
+   */
+  static async showCartCheckout(req, res) {
+    try {
+      // Soporte para carritos almacenados en sesión o en `req.session.user.cart`
+      const cart = (Array.isArray(req.session.cart) && req.session.cart.length > 0)
+        ? req.session.cart
+        : ((req.session.user && Array.isArray(req.session.user.cart) && req.session.user.cart.length > 0) ? req.session.user.cart : []);
+
+      if (!cart || cart.length === 0) {
+        return res.redirect('/user/cart');
+      }
+
+      // Calcular total
+      const total = cart.reduce((s, it) => s + (parseFloat(it.price || 0) * (it.qty || 1)), 0);
+
+      res.render('purchase-checkout', {
+        title: 'Checkout - CineCríticas',
+        items: cart,
+        total: total.toFixed(2),
+        user: req.session.user,
+        csrfToken: req.csrfToken ? req.csrfToken() : null
+      });
+    } catch (error) {
+      console.error('❌ Error cargando checkout del carrito:', error);
+      res.redirect('/user/cart?error=Error al cargar checkout');
+    }
+  }
+
+  /**
+   * Procesar compra del carrito (combo o única)
+   */
+  static async processCartPurchase(req, res) {
+    try {
+      const userId = req.session.user ? req.session.user.id : null;
+      if (!userId) return res.redirect('/auth/login?error=Debes iniciar sesión para comprar');
+
+      // Soporte para carritos en sesión o en el objeto user de la sesión
+      const cart = (Array.isArray(req.session.cart) && req.session.cart.length > 0)
+        ? req.session.cart
+        : ((req.session.user && Array.isArray(req.session.user.cart) && req.session.user.cart.length > 0) ? req.session.user.cart : []);
+
+      if (!cart || cart.length === 0) return res.redirect('/user/cart?error=Carrito vacío');
+
+      const { payment_method } = req.body;
+
+      // Validaciones de tarjeta si hace falta (si payment_method === 'card')
+      if ((payment_method || 'card') === 'card') {
+        const { card_number, expiry_date, cvv, card_type, card_holder } = req.body;
+        // Validaciones básicas similares a processMoviePurchase
+        const cardNumRaw = String(card_number || '').replace(/\s+/g, '');
+        if (!/^\d+$/.test(cardNumRaw)) return res.redirect('/purchase/checkout?error=Número de tarjeta inválido');
+      }
+
+      // Verificar si el usuario ya compró alguno de los items
+      const movieIds = cart.map(i => i.movieId ? parseInt(i.movieId) : (i.movie_id ? parseInt(i.movie_id) : null)).filter(Boolean);
+      if (movieIds.length > 0) {
+        const already = await require('../models').Purchase.findAll({ where: { user_id: userId, movie_id: movieIds, status: 'completed' } });
+        if (already && already.length > 0) {
+          const titles = already.map(a => a.movie_title || a.movie_id).join(', ');
+          return res.redirect('/user/cart?error=' + encodeURIComponent('Ya has comprado: ' + titles));
+        }
+      }
+
+      // Calcular total y crear un único registro de compra para el combo
+      const total = cart.reduce((s, it) => s + (parseFloat(it.price || 0) * (it.qty || 1)), 0);
+
+      const { Purchase } = require('../models');
+
+        // Para compras múltiples (carrito) validamos duplicados
+        // (esta sección sólo aplica a processCartPurchase)
+        const purchaseData = {
+        user_id: userId,
+        type: 'movie',
+        movie_id: null,
+        movie_title: cart.length > 1 ? 'Combo de peliculas' : (cart[0].title || 'Película'),
+        amount: parseFloat(total.toFixed(2)),
+        payment_method: payment_method || 'card',
+        status: 'completed',
+        transaction_id: 'txn_' + Date.now()
+      };
+
+      const purchase = await Purchase.create(purchaseData);
+
+      // Actualizar historial del usuario
+      await PurchaseController._updateUserPurchaseHistory(userId, purchase);
+
+      // Limpiar carrito en sesión
+      req.session.cart = [];
+      if (req.session.user && Array.isArray(req.session.user.cart)) {
+        req.session.user.cart = [];
+      }
+
+      return res.redirect(`/purchase/success/${purchase.id}`);
+    } catch (error) {
+      console.error('❌ Error procesando compra del carrito:', error);
+      return res.redirect('/user/cart?error=Error al procesar la compra');
+    }
+  }
+
+  /**
    * Procesar compra de película
    */
   static async processMoviePurchase(req, res) {
@@ -350,7 +451,15 @@ class PurchaseController {
 
       // Usar el modelo Purchase directamente
       const { Purchase } = require('../models');
-      
+      // Verificar si ya compró esta película
+      if (moviePlain.id) {
+        const prev = await Purchase.findOne({ where: { user_id: userId, movie_id: moviePlain.id, status: 'completed' } });
+        if (prev) {
+          return res.render('purchase-movie', { title: `Comprar ${moviePlain.title}`, movie: {
+            id: moviePlain.id, title: moviePlain.title, price: purchaseAmount, poster_image: moviePlain.poster_image, release_year: moviePlain.release_year, genre: moviePlain.genre
+          }, user: req.session.user, error: 'Ya has comprado esta película anteriormente.' });
+        }
+      }
       // Crear registro de compra
       const purchaseData = {
         user_id: userId,

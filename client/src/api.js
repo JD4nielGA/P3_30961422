@@ -1,25 +1,28 @@
-const apiFetch = async (path, opts = {}) => {
-  const token = localStorage.getItem('token');
-  const headers = opts.headers || {};
-  if (!headers['Accept']) headers['Accept'] = 'application/json';
-  if (!headers['Content-Type'] && opts.body) headers['Content-Type'] = 'application/json';
-  if (token) headers['Authorization'] = 'Bearer ' + token;
+const buildQuery = (obj) => {
+  const qs = new URLSearchParams();
+  Object.keys(obj || {}).forEach(k => {
+    if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') qs.append(k, obj[k]);
+  });
+  const s = qs.toString();
+  return s ? `?${s}` : '';
+}
 
-  const res = await fetch(path, { ...opts, headers, credentials: 'include' });
+const _fetch = async (url, opts = {}) => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const headers = opts.headers || {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  headers['Accept'] = 'application/json';
+  if (opts.body && !(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json';
+
+  const res = await fetch(url, { ...opts, headers });
   const text = await res.text();
-  try { return JSON.parse(text); } catch(e) { return text; }
+  try { return JSON.parse(text); } catch (e) { return text; }
 }
 
 export default {
-  login: (payload) => apiFetch('/api/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
-  register: (payload) => apiFetch('/api/auth/register', { method: 'POST', body: JSON.stringify(payload) }),
-  products: (params = {}) => {
-    const qs = new URLSearchParams(params).toString();
-    return apiFetch('/api/public/products' + (qs ? ('?' + qs) : ''))
-  },
-  createOrder: (payload) => apiFetch('/api/orders', { method: 'POST', body: JSON.stringify(payload) }),
-  orders: (params = {}) => {
-    const qs = new URLSearchParams(params).toString();
-    return apiFetch('/api/orders' + (qs ? ('?' + qs) : ''))
-  }
+  products: (params) => _fetch(`/api/public/products${buildQuery(params)}`),
+  login: (body) => _fetch('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
+  register: (body) => _fetch('/auth/register', { method: 'POST', body: JSON.stringify(body) }),
+  orders: (params) => _fetch(`/api/orders${buildQuery(params)}`),
+  createOrder: (body) => _fetch('/api/orders', { method: 'POST', body: JSON.stringify(body) }),
 }

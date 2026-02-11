@@ -1,31 +1,28 @@
 import React, { createContext, useState, useEffect } from 'react'
 
-export const CartContext = createContext()
+export const CartContext = createContext(null)
 
 export const CartProvider = ({ children }) => {
-  const [items, setItems] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('cart')||'[]') } catch(e){return []}
-  })
+	const [items, setItems] = useState(() => {
+		try { return JSON.parse(localStorage.getItem('cart') || '[]') } catch(e){ return [] }
+	})
 
-  useEffect(()=>{
-    localStorage.setItem('cart', JSON.stringify(items))
-  },[items])
+	useEffect(() => {
+		localStorage.setItem('cart', JSON.stringify(items));
+	}, [items]);
 
-  const add = (product, qty=1) => {
-    setItems(prev => {
-      const copy = [...prev]
-      const idx = copy.findIndex(i=>i.id===product.id)
-      if (idx>=0) { copy[idx].qty += qty } else { copy.push({ ...product, qty }) }
-      return copy
-    })
-  }
-  const remove = (id) => setItems(prev => prev.filter(i=>i.id!==id))
-  const clear = () => setItems([])
-  const total = () => items.reduce((s,i)=>s + (i.price||0)*i.qty,0)
+	const add = (p) => setItems(prev => {
+		const found = prev.find(i => i.id === p.id);
+		if (found) return prev.map(i => i.id === p.id ? { ...i, qty: (i.qty||1)+1 } : i);
+		return [...prev, { ...p, qty: 1 }];
+	});
 
-  return (
-    <CartContext.Provider value={{ items, add, remove, clear, total }}>
-      {children}
-    </CartContext.Provider>
-  )
+	const remove = (id) => setItems(prev => prev.filter(i => i.id !== id));
+	const clear = () => setItems([]);
+
+	return (
+		<CartContext.Provider value={{ items, add, remove, clear }}>
+			{children}
+		</CartContext.Provider>
+	)
 }

@@ -13,7 +13,8 @@ const requireAuth = (req, res, next) => {
 
 // Rutas de compras
 router.get('/purchase/movie/:id', PurchaseController.showMoviePurchasePage);
-router.get('/purchase/checkout', PurchaseController.showPurchasePage);
+router.get('/purchase/checkout', PurchaseController.showCartCheckout);
+router.post('/purchase/process-cart', requireAuth, PurchaseController.processCartPurchase);
 router.post('/purchase/process-movie', requireAuth, PurchaseController.processMoviePurchase);
 router.get('/purchase/success/:id', requireAuth, PurchaseController.showPurchaseSuccess);
 router.get('/purchases', requireAuth, PurchaseController.getUserPurchases);

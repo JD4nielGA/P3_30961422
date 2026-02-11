@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title><%= title %></title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:Arial, sans-serif;background:#f3f6fb;padding:20px;min-height:100vh;color:#2d3748}
+    .card{max-width:900px;margin:0 auto;background:#fff;padding:24px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.08)}
+    h1{margin-bottom:16px;color:#2d3748}
+    .items{margin:18px 0}
+    .item{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #eef2f7;gap:12px}
+    .item div:first-child{color:#2d3748;font-weight:600}
+    .item small{color:#718096;margin-left:6px}
+    .total{font-weight:900;text-align:right;margin-top:12px;font-size:1.3em;color:#2d3748}
+    .form-control{padding:10px;border:2px solid #e2e8f0;border-radius:8px}
+    label{font-weight:600;color:#2d3748}
+
+    /* Payment option blocks like purchase-movie */
+    .payment-methods{margin:18px 0}
+    .payment-option{border:2px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:10px;cursor:pointer;transition:all .2s}
+    .payment-option:hover{border-color:#4299e1}
+    .payment-option.selected{border-color:#4299e1;background:#ebf8ff}
+    .payment-icon{font-size:1.4em;margin-right:10px;color:#4299e1}
+
+    .btn-purchase{background:#48bb78;color:#fff;padding:12px;border-radius:8px;border:none;width:100%;font-size:16px;cursor:pointer}
+    .btn-purchase:hover:not(:disabled){background:#38a169;transform:translateY(-2px);box-shadow:0 6px 20px rgba(56,161,105,0.12)}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1><i class="fas fa-shopping-cart"></i> Confirmar compra</h1>
+
+    <div>
+      <strong>Artículos:</strong>
+      <div class="items">
+        <% items.forEach(function(it){ %>
+          <div class="item">
+            <div><%= it.title || 'Ítem' %> <small style="color:#666">x<%= it.qty || 1 %></small></div>
+            <div>€<%= (parseFloat(it.price||0)).toFixed(2) %></div>
+          </div>
+        <% }); %>
+      </div>
+
+      <div class="total">Total: €<%= total %></div>
+
+      <p style="margin-top:10px;color:#2d3748;font-weight:600"><%= items.length>1 ? 'Combo de peliculas' : 'Compra individual' %></p>
+    </div>
+
+    <% if (user) { %>
+      <form id="cartPurchaseForm" method="POST" action="/purchase/process-cart">
+        <% if (csrfToken) { %>
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <% } %>
+
+        <div class="payment-methods">
+          <h3 style="margin-bottom:12px"><i class="fas fa-credit-card"></i> Método de pago</h3>
+
+          <div class="payment-option" onclick="selectPayment(this,'card')">
+            <input type="radio" name="payment_method" value="card" style="display:none" checked>
+            <label style="cursor:pointer;display:flex;align-items:center"><i class="fas fa-credit-card payment-icon"></i> Tarjeta de Crédito/Débito</label>
+          </div>
+
+          <div class="payment-option" onclick="selectPayment(this,'paypal')">
+            <input type="radio" name="payment_method" value="paypal" style="display:none">
+            <label style="cursor:pointer;display:flex;align-items:center"><i class="fab fa-paypal payment-icon"></i> PayPal</label>
+          </div>
+        </div>
+
+        <div id="cardForm" style="display:block">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <input id="card_number" name="card_number" placeholder="Número de tarjeta" class="form-control" maxlength="19" inputmode="numeric" pattern="[0-9]*" oninput="formatCardNumber(this)">
+            <input id="expiry_date" name="expiry_date" placeholder="MM/YY or MM/YYYY" class="form-control" maxlength="7" inputmode="numeric" pattern="[0-9\/\-]*" oninput="formatExpiryDate(this)" onblur="normalizeExpiry(this)">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+            <input id="cvv" name="cvv" placeholder="CVV" class="form-control" maxlength="4" inputmode="numeric" oninput="formatCVV(this)">
+            <input id="card_holder" name="card_holder" placeholder="Nombre del titular" class="form-control">
+          </div>
+        </div>
+
+        <div id="paypalForm" style="display:none;text-align:center;padding:20px;margin-top:10px">
+          <p style="color:#4a5568">Serás redirigido a PayPal para completar tu pago de forma segura.</p>
+        </div>
+
+        <button type="submit" id="cartPurchaseBtn" class="btn-purchase" style="margin-top:18px">Pagar €<%= total %></button>
+      </form>
+    <% } else { %>
+      <div style="margin-top:18px;color:#7f1d1d">Debes <a href="/login">iniciar sesión</a> para completar la compra.</div>
+    <% } %>
+  </div>
+
+  <script>
+    // Copiado de purchase-movie para mantener validaciones y UX
+    let selectedPaymentMethod = 'card';
+
+    function selectPayment(element, method) {
+      selectedPaymentMethod = method;
+      document.querySelectorAll('.payment-option').forEach(o => o.classList.remove('selected'));
+      element.classList.add('selected');
+      const radio = element.querySelector('input[name="payment_method"]') || document.querySelector(`input[name="payment_method"][value="${method}"]`);
+      if (radio) radio.checked = true;
+      if (method === 'card') {
+        document.getElementById('cardForm').style.display = 'block';
+        document.getElementById('paypalForm').style.display = 'none';
+      } else {
+        document.getElementById('cardForm').style.display = 'none';
+        document.getElementById('paypalForm').style.display = 'block';
+      }
+    }
+
+    function formatCardNumber(input) { input.value = input.value.replace(/\D/g,''); }
+    function formatExpiryDate(input) {
+      let v = input.value.replace(/[^0-9]/g,'');
+      if (v.length <= 2) { input.value = v; return; }
+      if (v.length <= 4) { input.value = v.substring(0,2) + '/' + v.substring(2); return; }
+      input.value = v.substring(0,2) + '/' + v.substring(2,6);
+    }
+    function normalizeExpiry(input) {
+      let raw = input.value.trim(); if (!raw) return;
+      const digits = raw.replace(/\D/g,''); let mm='', yyyy='';
+      if (digits.length === 3) { mm='0'+digits.substring(0,1); yyyy='20'+digits.substring(1,3);} 
+      else if (digits.length === 4) { mm=digits.substring(0,2); yyyy='20'+digits.substring(2,4);} 
+      else if (digits.length === 5) { mm='0'+digits.substring(0,1); yyyy=digits.substring(1,5);} 
+      else if (digits.length >=6) { mm=digits.substring(0,2); yyyy=digits.substring(2,6);} else return;
+      input.value = mm + '/' + yyyy;
+    }
+    function formatCVV(input) { input.value = input.value.replace(/\D/g,'').substring(0,4); }
+
+    function showError(message) {
+      const existing = document.querySelector('.error-message'); if (existing) existing.remove();
+      const err = document.createElement('div'); err.className='error-message'; err.innerHTML = '<i class="fas fa-exclamation-circle"></i> '+message;
+      const btn = document.getElementById('cartPurchaseBtn'); btn.parentNode.insertBefore(err, btn);
+      err.scrollIntoView({behavior:'smooth',block:'center'});
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+      const form = document.getElementById('cartPurchaseForm'); if (!form) return;
+      form.addEventListener('submit', function(e){
+        const submitBtn = document.getElementById('cartPurchaseBtn');
+        if (!selectedPaymentMethod) { e.preventDefault(); showError('Por favor selecciona un método de pago'); return; }
+        if (selectedPaymentMethod === 'card') {
+          const cardNumber = document.getElementById('card_number').value;
+          const expiryDate = document.getElementById('expiry_date').value;
+          const cvv = document.getElementById('cvv').value;
+          const cardHolder = document.getElementById('card_holder').value;
+          if (!cardNumber || !expiryDate || !cvv || !cardHolder) { e.preventDefault(); showError('Por favor completa todos los campos de la tarjeta'); return; }
+          const clean = cardNumber.replace(/\s/g,''); if (clean.length < 13 || clean.length > 19) { e.preventDefault(); showError('El número de tarjeta tiene una longitud inválida'); return; }
+          if (!expiryDate.match(/^\d{2}\/(\d{2}|\d{4})$/)) { e.preventDefault(); showError('Formato de fecha inválido. Usa MM/AA o MM/AAAA'); return; }
+          if (!(cvv.length === 3 || cvv.length === 4)) { e.preventDefault(); showError('El CVV debe tener 3 o 4 dígitos'); return; }
+        }
+        if (submitBtn) { submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando pago...'; submitBtn.disabled = true; }
+      });
+    });
+  </script>
+</body>
+</html>
