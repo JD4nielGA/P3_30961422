@@ -18,18 +18,21 @@ class HomeController {
         userId: user ? user.id : 'No user'
       });
 
-      // Verificar asociaciones primero
-      await DatabaseService.checkReviewAssociations();
-
-      // Obtener reseñas destacadas usando el método nuevo
-      const featuredReviews = await DatabaseService.getFeaturedReviewsForHome();
-      
-      // Obtener reseñas recientes usando el método nuevo
-      const allReviews = await DatabaseService.getRecentReviewsForHome();
-
-      // Obtener películas para mostrar en el home
-      const movies = await DatabaseService.getAllMovies(20);
-      console.log('🎬 Películas cargadas para home:', movies.length);
+      let featuredReviews = [], allReviews = [], movies = [], debugError = null, debugMovieInfo = null;
+      try {
+        await DatabaseService.checkReviewAssociations();
+        featuredReviews = await DatabaseService.getFeaturedReviewsForHome();
+        allReviews = await DatabaseService.getRecentReviewsForHome();
+        movies = await DatabaseService.getAllMovies(20);
+        debugMovieInfo = {
+          cantidad: movies.length,
+          primerTitulo: movies[0] ? movies[0].title : null,
+          primerId: movies[0] ? movies[0].id : null
+        };
+      } catch (innerError) {
+        debugError = innerError.message || innerError.toString();
+        console.error('❌ Error interno al cargar películas/reseñas:', innerError);
+      }
 
       console.log('📊 Reseñas cargadas:', {
         destacadas: featuredReviews.length,
@@ -53,34 +56,20 @@ class HomeController {
       // Procesar las reseñas para incluir la información del autor
       const processedFeaturedReviews = featuredReviews.map(review => {
         const reviewData = review.toJSON ? review.toJSON() : review;
-        
-        console.log(`🔍 Procesando reseña ${reviewData.id}:`, {
-          hasUser: !!reviewData.user,
-          userData: reviewData.user
-        });
-
-        // Manejar diferentes estructuras de datos del usuario
         if (reviewData.user) {
-          // Si viene con la asociación 'user'
           reviewData.username = reviewData.user.username || 'Usuario';
           reviewData.user_role = reviewData.user.role || 'user';
         } else if (reviewData.User) {
-          // Si el alias es 'User' en lugar de 'user'
           reviewData.username = reviewData.User.username || 'Usuario';
           reviewData.user_role = reviewData.User.role || 'user';
         } else {
-          // Si no viene con datos de usuario, intentar obtenerlos por separado
-          console.log(`⚠️ Reseña ${reviewData.id} no tiene datos de usuario, buscando por separado...`);
           reviewData.username = 'Usuario';
           reviewData.user_role = 'user';
         }
-        
         return reviewData;
       });
-
       const processedAllReviews = allReviews.map(review => {
         const reviewData = review.toJSON ? review.toJSON() : review;
-        
         if (reviewData.user) {
           reviewData.username = reviewData.user.username || 'Usuario';
           reviewData.user_role = reviewData.user.role || 'user';
@@ -91,18 +80,19 @@ class HomeController {
           reviewData.username = 'Usuario';
           reviewData.user_role = 'user';
         }
-        
         return reviewData;
       });
 
       res.render('home', {
         title: 'CineCríticas - Descubre y Comparte Reseñas',
-        user: user, // Usar la variable segura
+        user: user,
         featuredReviews: processedFeaturedReviews,
         allReviews: processedAllReviews,
         movies: movies.map(m => (m.toJSON ? m.toJSON() : m)),
         success: req.query.success,
-        error: req.query.error
+        error: req.query.error,
+        debugError: debugError,
+        debugMovieInfo: debugMovieInfo
       });
 
     } catch (error) {
@@ -116,7 +106,10 @@ class HomeController {
         user: user,
         featuredReviews: [],
         allReviews: [],
-        error: 'Error al cargar las reseñas'
+        movies: [],
+        error: 'Error al cargar las reseñas',
+        debugError: error.message || error.toString(),
+        debugMovieInfo: null
       });
     }
   }
@@ -198,6 +191,135 @@ class HomeController {
     } catch (error) {
       console.error('Error cargando página de contacto:', error);
       res.redirect('/?error=Error al cargar la página');
+    }
+  }
+
+  /**
+   * Buscar películas por título (query param `q`)
+   */
+  static async search(req, res) {
+    try {
+      const q = req.query.q ? String(req.query.q).trim() : '';
+      const user = req.session && req.session.user ? req.session.user : null;
+
+      // Obtener reseñas para la página (reutilizamos los métodos del servicio)
+      const featuredReviews = await DatabaseService.getFeaturedReviewsForHome();
+      const allReviews = await DatabaseService.getRecentReviewsForHome();
+
+      // Procesar reseñas igual que en showHome
+      const processedFeaturedReviews = featuredReviews.map(review => {
+        const reviewData = review.toJSON ? review.toJSON() : review;
+        if (reviewData.user) {
+          reviewData.username = reviewData.user.username || 'Usuario';
+          reviewData.user_role = reviewData.user.role || 'user';
+        } else if (reviewData.User) {
+          reviewData.username = reviewData.User.username || 'Usuario';
+          reviewData.user_role = reviewData.User.role || 'user';
+        } else {
+          reviewData.username = 'Usuario';
+          reviewData.user_role = 'user';
+        }
+        return reviewData;
+      });
+
+      const processedAllReviews = allReviews.map(review => {
+        const reviewData = review.toJSON ? review.toJSON() : review;
+        if (reviewData.user) {
+          reviewData.username = reviewData.user.username || 'Usuario';
+          reviewData.user_role = reviewData.user.role || 'user';
+        } else if (reviewData.User) {
+          reviewData.username = reviewData.User.username || 'Usuario';
+          reviewData.user_role = reviewData.User.role || 'user';
+        } else {
+          reviewData.username = 'Usuario';
+          reviewData.user_role = 'user';
+        }
+        return reviewData;
+      });
+
+      let movies = [];
+      if (q) {
+        // Validación mínima para evitar búsquedas vacías/very small
+        if (q.length < 2) {
+          movies = [];
+        } else {
+          const Sequelize = require('sequelize');
+          const { Op } = Sequelize;
+          await DatabaseService.ensureDatabase();
+          movies = await DatabaseService.Movie.findAll({
+            where: {
+              is_active: true,
+              [Op.and]: [
+                Sequelize.where(
+                  Sequelize.fn('LOWER', Sequelize.col('title')),
+                  { [Op.like]: `%${q.toLowerCase()}%` }
+                )
+              ]
+            },
+            attributes: ['id', 'title', 'poster_image', 'release_year', 'description', 'price'],
+            order: [['created_at', 'DESC']]
+          });
+        }
+      }
+
+      res.render('search', {
+        results: movies.map(m => (m.toJSON ? m.toJSON() : m)),
+        q: q,
+        title: q ? `Resultados para "${q}"` : 'Buscar películas'
+      });
+    } catch (error) {
+      console.error('❌ Error en búsqueda de películas:', error);
+      res.render('search', {
+        results: [],
+        q: req.query.q || '',
+        title: 'Buscar películas'
+      });
+    }
+  }
+
+  /**
+   * API: búsqueda en vivo de películas (devuelve JSON)
+   */
+  static async apiSearch(req, res) {
+    try {
+      const q = req.query.q ? String(req.query.q).trim() : '';
+      console.log('🔎 [DEBUG] apiSearch query:', q);
+      // Si la query está vacía devolvemos array vacío
+      if (!q) {
+        console.log('🔎 [DEBUG] Query vacía, retorno array vacío');
+        return res.json({ success: true, movies: [] });
+      }
+
+      // Validación: mínimo 2 caracteres
+      if (q.length < 2) {
+        console.log('🔎 [DEBUG] Query muy corta');
+        return res.json({ success: true, movies: [], message: 'Escribe al menos 2 caracteres para buscar' });
+      }
+
+      const Sequelize = require('sequelize');
+      const { Op } = Sequelize;
+
+      // Asegurar servicio y usar búsqueda case-insensitive en title
+      await DatabaseService.ensureDatabase();
+      const movies = await DatabaseService.Movie.findAll({
+        where: Sequelize.where(
+          Sequelize.fn('LOWER', Sequelize.col('title')),
+          { [Op.like]: `%${q.toLowerCase()}%` }
+        ),
+        attributes: ['id', 'title', 'poster_image', 'release_year', 'description', 'price'],
+        limit: 30,
+        order: [['created_at', 'DESC']]
+      });
+
+      const plain = movies.map(m => (m.toJSON ? m.toJSON() : m));
+      console.log('🔎 [DEBUG] Resultados encontrados:', plain.length);
+      if (plain.length > 0) {
+        console.log('🔎 [DEBUG] Primer resultado:', plain[0]);
+      }
+      res.json({ success: true, movies: plain });
+    } catch (error) {
+      console.error('❌ Error en apiSearch:', error);
+      res.status(500).json({ success: false, error: 'Error interno' });
     }
   }
 }

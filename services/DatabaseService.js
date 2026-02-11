@@ -1313,6 +1313,23 @@ class DatabaseService {
       return { movies: [], series: [] };
     }
   }
+
+  // Método de depuración: buscar película por ID
+  async debugFindMovieById(id) {
+    try {
+      await this.ensureDatabase();
+      const movie = await this.Movie.findByPk(id);
+      if (!movie) {
+        console.log(`🔍 No se encontró película con ID ${id}`);
+        return null;
+      }
+      console.log('🎬 Película encontrada:', movie.toJSON ? movie.toJSON() : movie);
+      return movie;
+    } catch (error) {
+      console.error('❌ Error en debugFindMovieById:', error.message);
+      return null;
+    }
+  }
 }
 
 module.exports = new DatabaseService();

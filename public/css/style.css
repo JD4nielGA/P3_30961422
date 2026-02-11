@@ -1,3 +1,125 @@
+/* Search Page Styles */
+.search-page {
+    padding: 2rem 0;
+}
+
+.search-title {
+    text-align: center;
+    margin-bottom: 2rem;
+    color: #764ba2;
+    font-size: 2.2rem;
+}
+
+.search-form {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.search-form input[type="text"] {
+    width: 350px;
+    padding: 0.7rem 1rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 1.1rem;
+}
+
+.search-form button {
+    padding: 0.7rem 1.5rem;
+    font-size: 1.1rem;
+}
+
+.search-results {
+    margin: 0 auto;
+    max-width: 900px;
+}
+
+.search-results h2 {
+    margin-bottom: 1.5rem;
+    color: #3498db;
+    text-align: left;
+}
+
+.movie-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+    list-style: none;
+    padding: 0;
+}
+
+.movie-card {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    flex-direction: column;
+    min-height: 320px;
+}
+.movie-card:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 6px 24px rgba(118,75,162,0.15);
+}
+.movie-card a {
+    color: inherit;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+.movie-poster {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    background: #f3e5f5;
+    display: block;
+}
+.movie-poster-placeholder {
+    width: 100%;
+    height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    color: #764ba2;
+    background: #f3e5f5;
+}
+.movie-info {
+    padding: 1rem 1.2rem 1.2rem 1.2rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+.movie-info h3 {
+    margin: 0 0 0.3rem 0;
+    font-size: 1.2rem;
+    color: #764ba2;
+}
+.movie-year {
+    color: #888;
+    font-size: 0.95rem;
+    margin-left: 0.3rem;
+}
+.movie-description {
+    margin: 0.7rem 0 0.5rem 0;
+    color: #444;
+    font-size: 1rem;
+}
+.movie-price {
+    color: #3498db;
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+.loader {
+    text-align: center;
+    color: #764ba2;
+    font-size: 1.1rem;
+    margin: 1.5rem 0;
+}
 * {
     margin: 0;
     padding: 0;

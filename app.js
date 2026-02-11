@@ -1,3 +1,4 @@
+// ...existing code...
 // app.js - VERSIÓN COMPLETAMENTE CORREGIDA CON DEBUGGING MEJORADO
 console.log('🚀 Iniciando CineCríticas con Swagger...');
 
@@ -1357,13 +1358,43 @@ const safeRoute = (controller, methodName, fallbackMessage = 'Controlador no dis
     };
   }
 };
+
 const HomeController = require('./controllers/homeController');
+// Montar rutas principales (incluye /search)
+const indexRoutes = require('./routes/index');
+app.use('/', indexRoutes);
 
 // Rutas principales
 app.get('/', HomeController.showHome);
 app.get('/about', HomeController.showAbout);
 app.get('/contact', HomeController.showContact);
 app.get('/test-associations', HomeController.testAssociations);
+
+// Ruta de búsqueda dedicada
+app.get('/buscar', async (req, res) => {
+  const q = req.query.q ? String(req.query.q).trim() : '';
+  let results = [];
+  if (q.length >= 2) {
+    const Sequelize = require('sequelize');
+    const { Op } = Sequelize;
+    await DatabaseService.ensureDatabase();
+    results = await DatabaseService.Movie.findAll({
+      where: {
+        is_active: true,
+        [Op.and]: [
+          Sequelize.where(
+            Sequelize.fn('LOWER', Sequelize.col('title')),
+            { [Op.like]: `%${q.toLowerCase()}%` }
+          )
+        ]
+      },
+      attributes: ['id', 'title', 'poster_image', 'release_year', 'description', 'price'],
+      order: [['created_at', 'DESC']]
+    });
+    results = results.map(m => (m.toJSON ? m.toJSON() : m));
+  }
+  res.render('search', { results, q, title: q ? `Resultados para "${q}"` : 'Buscar películas' });
+});
 
 // Admin - películas (RUTAS SEGURAS)
 app.get('/admin/movies/new', requireAdmin, safeRoute(MovieController, 'showNewMovieForm'));
@@ -1800,4 +1831,3 @@ const startServer = async () => {
       user: req.session?.user || null
     });
   });
- 
